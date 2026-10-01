@@ -16,9 +16,12 @@ OUT = ROOT / 'dist'
 
 def main():
     selected = {name: name for name in [
-        'LICENSE', 'RELEASE_NOTES.md', 'docs/SELFHOST.md', 'docs/PUBLISHING.md',
+        'LICENSE', 'README.md', 'README.zh-CN.md',
+        'RELEASE_NOTES.md', 'RELEASE_NOTES.zh-CN.md',
+        'docs/SELFHOST.md', 'docs/SELFHOST.zh-CN.md',
+        'CONTRIBUTING.md', 'CONTRIBUTING.zh-CN.md',
         'deploy/selfhost.env.example', 'deploy/ts6-sfu-selfhost.service',
-        'deploy/README.public.md', 'scripts/package-selfhost.py',
+        'scripts/package-selfhost.py',
         'scripts/instrumentation/extend_control.c',
         'scripts/instrumentation/control_return_code.h',
         'scripts/instrumentation/control_return_code_test.c',
@@ -28,12 +31,10 @@ def main():
         'media/scripts/query-snapshot.js', 'media/scripts/browser-test.sh',
         'media/scripts/token.js',
     ]}
-    selected.update({'README.md': 'deploy/README.public.md',
-                     'README.zh-CN.md': 'deploy/README.public.md'})
     for folder, suffixes in [('media/src', {'.js'}), ('media/test', {'.js'}),
                              ('media/web', {'.js', '.html', '.css'})]:
         for path in (ROOT / folder).rglob('*'):
-            if path.is_file() and path.suffix in suffixes and 'dist' not in path.parts:
+            if path.is_file() and path.suffix in suffixes and 'dist' not in path.relative_to(ROOT / folder).parts:
                 relative = path.relative_to(ROOT).as_posix()
                 selected[relative] = relative
     OUT.mkdir(exist_ok=True)

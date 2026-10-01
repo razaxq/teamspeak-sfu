@@ -1,16 +1,20 @@
-# 自行部署实验版 SFU
+# Self-hosting the experimental SFU
 
-这是 **v0.1.0-preview.1**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
+**English** | [简体中文](SELFHOST.zh-CN.md)
 
-目前仅支持 **Linux ARM64 / aarch64**，使用固定版本的 TeamSpeak 服务端镜像。已验证的官方 Windows 客户端为 **6.0.0-beta4.1，内部版本号 1779880475**。没有验证 x86_64 服务端、其他客户端版本、大规模房间或长期无人值守运行。
+This is **v0.1.0-preview.1**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
 
-该部署会建立一个独立 TeamSpeak 实验服务端，并加载本项目的服务端扩展。**仅给已有的普通 TeamSpeak 服务端填写 SFU Endpoint，不能获得相同功能。** 客户端保持原版。扩展依赖固定二进制布局，启动前校验 SHA-256；不要自动升级服务端镜像。
+This project is recommended for people with software development experience, or people familiar with using **Codex** for development, deployment, and troubleshooting. Be prepared to configure Linux networking, inspect diagnostics, and verify changes on your own server.
 
-## 准备服务器
+Only **Linux ARM64 / aarch64** with the pinned TeamSpeak server image is supported. The tested official Windows client is **6.0.0-beta4.1, build 1779880475**. x86_64 servers, other client versions, large rooms, and long-term unattended operation have not been verified.
 
-准备有公网 IPv4 的 ARM64 Linux 服务器、root 权限、systemd、rootful Podman、iptables、GCC 和 Node.js 22 或更新版本。当前脚本使用 IPv4、直接 WebSocket 连接和 Podman 默认桥接网络；不提供反向代理、WSS、TURN、IPv6 或 rootless 部署方案。
+Deployment creates a separate experimental TeamSpeak server with this project's server-side extension. **Setting an SFU Endpoint on an ordinary existing server is insufficient.** Clients remain unmodified. The extension depends on a specific binary layout; startup verifies the SHA-256. Do not automatically upgrade the server image.
 
-以下安装命令适用于 Debian / Ubuntu 系统，其他发行版请安装对应的软件包。Node.js 需要自行安装到系统 PATH（例如 `/usr/bin/node` 或 `/usr/local/bin/node`），不要仅装在某个用户的 nvm 环境中。
+## Prepare the server
+
+Use an ARM64 Linux server with public IPv4, root access, systemd, rootful Podman, iptables, GCC, and Node.js 22+. The scripts use IPv4, direct WebSocket connections, and Podman's default bridge network. Reverse-proxy, WSS, TURN, IPv6, and rootless deployment are not provided.
+
+These dependency commands apply to Debian / Ubuntu; install equivalent packages on other distributions. Install Node.js separately in the system PATH, such as `/usr/bin/node` or `/usr/local/bin/node`. A Node.js installation available only through one user's nvm environment is insufficient for the systemd unit.
 
 ```sh
 sudo apt-get update
@@ -19,9 +23,9 @@ uname -m
 node --version
 ```
 
-`uname -m` 必须显示 `aarch64`。依赖安装会下载 mediasoup worker，无法下载时会尝试本地编译，需要 Python 3.10+、pip 和 C++ 编译器；参见 [mediasoup 安装说明](https://mediasoup.org/documentation/v3/mediasoup/installation/)。
+`uname -m` must report `aarch64`. Dependency installation downloads a mediasoup worker or attempts a local build if a suitable binary is unavailable. Local builds need Python 3.10+, pip, and a C++ compiler. See the [mediasoup installation documentation](https://mediasoup.org/documentation/v3/mediasoup/installation/).
 
-把源码包解压到 `/opt/ts6-native-sfu-lab`，确认该目录直接包含 `media/`、`deploy/`、`scripts/`。以下命令以 root 执行：
+Extract the source package to `/opt/ts6-native-sfu-lab`, directly containing `media/`, `deploy/`, and `scripts/`. Run the following commands as root:
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
@@ -31,29 +35,29 @@ npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
 ```
 
-编辑 `/etc/ts6-sfu-selfhost.env`：将 `SFU_PUBLIC_HOST` 换成自己的域名或公网 IPv4；域名 A 记录必须直接解析到这台服务器，关闭 CDN 代理。只填写主机名，不带 `http://`、端口或路径。阅读 TeamSpeak 服务端许可条款后，将 `TSSERVER_LICENSE_ACCEPTED` 设置为 `accept`。其余项目可以保留默认值。
+Edit `/etc/ts6-sfu-selfhost.env`. Set `SFU_PUBLIC_HOST` to your hostname or public IPv4. A hostname's A record must point directly to this server; disable any CDN proxy. Supply only the hostname, without `http://`, a port, or a path. Read the TeamSpeak server license terms, then set `TSSERVER_LICENSE_ACCEPTED` to `accept` if you accept them. Other settings can retain their defaults.
 
-拉取固定镜像：
+Pull the pinned image:
 
 ```sh
 podman pull docker.io/teamspeaksystems/teamspeak6-server@sha256:a89b53db7b4a213251a47b652b212d1314728ec8c498f5246cf7e7622587ed89
 node --env-file=/etc/ts6-sfu-selfhost.env media/scripts/selfhost.js --check
 ```
 
-检查命令会创建并删除一个未启动的临时容器，验证服务端二进制，然后编译本项目扩展，不会启动语音服务器。预期输出 `preflight: passed`。官方程序由部署者从上游拉取，本项目源码包不包含 TeamSpeak 可执行文件或客户端 DLL。
+The check creates and removes a temporary container without starting it, verifies the server binary, and compiles this project's extension. It does not start the voice server. Expected output includes `preflight: passed`. Deployers obtain official software from upstream; the source package contains no TeamSpeak executables or client DLLs.
 
-## 开放端口并启动
+## Open ports and start the service
 
-在云安全组及上游防火墙开放以下端口，改过配置时使用相应的新端口：
+Allow these ports in your cloud security group and upstream firewall, using your configured values if changed:
 
-| 默认端口 | 协议 | 用途 |
+| Default port | Protocol | Purpose |
 | --- | --- | --- |
-| 19987 | UDP | TeamSpeak 连接和语音 |
-| 18344 | TCP | 原生 SFU WebSocket 信令 |
-| 19125 | UDP、TCP | WebRTC 媒体 |
-| 11022 | TCP，仅回环 | 内部 SSH Query，不向公网开放 |
+| 19987 | UDP | TeamSpeak connections and voice |
+| 18344 | TCP | Native SFU WebSocket signaling |
+| 19125 | UDP and TCP | WebRTC media |
+| 11022 | TCP, loopback only | Internal SSH Query; do not expose publicly |
 
-脚本会插入本实例所需的宿主机 iptables 规则，正常停止时删除这些规则；不会修改云安全组。已有严格网络策略的主机需要管理员检查规则是否匹配自身要求。客户端不需要公网地址。
+The script inserts the host iptables rules needed by this instance and removes them on a normal stop. It does not modify cloud security groups. Administrators of hosts with strict network policies should review these rules against their requirements. Clients do not need public IP addresses.
 
 ```sh
 install -m 644 deploy/ts6-sfu-selfhost.service /etc/systemd/system/ts6-sfu-selfhost.service
@@ -63,44 +67,46 @@ systemctl status ts6-sfu-selfhost --no-pager
 cat /var/lib/ts6-sfu-selfhost/status.json
 ```
 
-首次启动需要数十秒。`status.json` 中 `ready` 和 `viewerDiscoveryReady` 都为 `true` 后，查看本机凭据：
+First startup takes several tens of seconds. Once `ready` and `viewerDiscoveryReady` in `status.json` are both `true`, read the credentials locally:
 
 ```sh
 cat /var/lib/ts6-sfu-selfhost/access.txt
 ```
 
-此文件包含服务器密码和一次性管理员权限密钥，权限为 `0600`。它只应提供给部署者；普通使用者只需要服务器地址与连接密码。不要把此文件、`server.env`、整个状态目录或未经审阅的日志上传到公开仓库。
+This file contains the server password and a single-use administrator privilege key, with permissions `0600`. It is intended for the administrator; ordinary users need only the server address and connection password. Do not upload this file, `server.env`, the state directory, or unreviewed logs to a public repository.
 
-## 使用官方客户端
+The current runtime writes Chinese labels in `access.txt`: `实验地址` means server address, `服务器密码` means server password, and `一次性管理员权限密钥` means single-use administrator privilege key.
 
-1. 发布者和观看者连接 `公网IPv4:19987`，输入生成的服务器密码。显式写出端口，避免域名 SRV 记录跳转到别的服务器。
-2. 发布者使用 `access.txt` 中的一次性管理员权限密钥，断开并重新连接。当前仅管理员组（默认组 ID 为 6）可开播，不应给所有观看者管理员权限。
-3. 双方进入同一频道。发布者打开屏幕共享，选择 Server / 服务器，再开始直播。
-4. 观看者从正在分享的图标进入观看；需要时由发布者允许加入。
+## Use the official client
 
-SFU Endpoint 由脚本自动设置为 `SFU_PUBLIC_HOST:SFU_WS_PORT`。频道中会出现名为“SFU 服务”的连接，用于原生分享通知，不要踢出。当前限制 8 个 TeamSpeak 连接（含该服务连接）、4 个共享房间、8 个媒体连接，不适合大规模使用。
+1. Connect publisher and viewer to `PUBLIC_IPV4:19987` and enter the generated server password. Specify the port explicitly to avoid DNS SRV records directing you elsewhere.
+2. The publisher uses the administrator privilege key from `access.txt`, then disconnects and reconnects. Only the administrator group (default group ID 6) can publish in this preview. Do not grant all viewers administrator privileges.
+3. Join the same channel. The publisher opens screen sharing, selects **Server**, and starts the stream.
+4. The viewer joins through the active sharing icon. The publisher approves the request when prompted.
 
-## 维护与排错
+The script automatically sets SFU Endpoint to `SFU_PUBLIC_HOST:SFU_WS_PORT`. A connection named `SFU 服务` (SFU service) provides sharing notifications; do not kick it. Current limits are 8 TeamSpeak connections including this service, 4 sharing rooms, and 8 media connections. This preview is not intended for large deployments.
+
+## Maintenance and troubleshooting
 
 ```sh
 systemctl stop ts6-sfu-selfhost
 systemctl start ts6-sfu-selfhost
 ```
 
-TeamSpeak 数据保存在 Podman 卷 `ts6-sfu-selfhost-data`；密码和扩展状态保存在 `/var/lib/ts6-sfu-selfhost/`。两者应一同备份。正常重启复用数据与密码，不再生成新的管理员密钥；旧密钥使用后仍会显示在文件中，但无法重复使用。不要删除数据卷来排查连接故障。
+TeamSpeak data lives in the Podman volume `ts6-sfu-selfhost-data`. Credentials and extension state live in `/var/lib/ts6-sfu-selfhost/`. Back up both together. Normal restarts reuse data and passwords without generating a new administrator key. A used key remains visible in the file but cannot be reused. Do not delete the data volume to troubleshoot connection problems.
 
-若服务显示运行但尚未就绪，先检查 `status.json`；再在本机查看 `journalctl -u ts6-sfu-selfhost -n 50 --no-pager`。不要公开原始容器启动日志，其中可能有权限密钥。
+If the service is running but not ready, check `status.json`, then inspect `journalctl -u ts6-sfu-selfhost -n 50 --no-pager` locally. Do not publish raw container startup logs: they may contain privilege keys.
 
-- `Unsupported ...`：架构或服务端镜像不匹配，请使用文档固定镜像。
-- `Deployment command failed`：检查系统依赖、镜像是否已拉取、端口和目录权限。
-- 容器已经存在：脚本不会接管同名容器。先核实它是否是本项目异常退出留下的容器，停止对应服务后再处理；不要删除未知容器。
-- 无共享入口：检查发布者管理员权限、重连、同一频道，以及 `viewerDiscoveryReady`。
-- 能连接语音但不能观看：检查 18344/TCP、19125/UDP/TCP 和域名 A 记录。当前没有 TURN 中继。
-- 能看画面但没有共享声音和音量控件：这是此版本已知限制。
+- `Unsupported ...`: architecture or image mismatch. Use the pinned image in this guide.
+- `Deployment command failed`: check dependencies, image availability, free ports, and directory permissions.
+- Container already exists: the script will not take over an existing container. Check whether it is left over from this project's abnormal shutdown, and stop the owning service before handling it. Do not delete unknown containers.
+- No sharing entry: check publisher permissions, reconnect, join the same channel, and check `viewerDiscoveryReady`.
+- Voice works but viewing fails: check 18344/TCP, 19125/UDP and TCP, and the DNS A record. No TURN relay is available.
+- Video works but shared audio and its volume control are missing: this is a known limitation.
 
-卸载服务时先 `systemctl disable --now ts6-sfu-selfhost`，移除 unit 并执行 `systemctl daemon-reload`。数据卷和状态目录默认保留。非正常断电或强制杀进程可能留下容器或带实例名称注释的 iptables 规则，需要人工核实后清理。
+To uninstall, run `systemctl disable --now ts6-sfu-selfhost`, remove the unit, and run `systemctl daemon-reload`. The data volume and state directory are retained. Power loss or forced termination can leave containers or iptables rules bearing the instance name; inspect them before manual cleanup.
 
-## 开发验证
+## Development checks
 
 ```sh
 cd /opt/ts6-native-sfu-lab/media
@@ -108,4 +114,4 @@ npm ci
 npm test
 ```
 
-测试覆盖鉴权、权限撤销、原生消息、观看审批、媒体资源清理和部署配置校验。可选的浏览器测试需要额外安装 Playwright Chromium，并构建网页资源；它们不能替代两个官方客户端之间的实际验收。
+Tests cover authentication, permission revocation, native messages, viewing approval, media cleanup, and deployment configuration validation. Optional browser tests need Playwright Chromium and built web assets. They do not replace end-to-end acceptance testing between two official clients.

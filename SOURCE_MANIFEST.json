@@ -1,14 +1,16 @@
 {
   ".gitignore": "bc91991b17a9af170b825d2ccc6cb53993c949499c436b13109762f65b80b761",
+  "CONTRIBUTING.md": "3472ae610a96d333048c1122b1a13c65ed1aa68cc0a4a20b6fea952efad0f32b",
+  "CONTRIBUTING.zh-CN.md": "a862b53e0ea0ae158a64bc87e284e1c0131450916b5368e03ebb89b95f1d5e2f",
   "LICENSE": "b57a5e6932442a728bcd196f17004becab31d8bb086ac3d7e11fda1034e5ecbd",
-  "README.md": "a783d1ef48d71e0c16178a5a6ce878c04c1bad35107cf6977dc13c5cd870d768",
-  "README.zh-CN.md": "a783d1ef48d71e0c16178a5a6ce878c04c1bad35107cf6977dc13c5cd870d768",
-  "RELEASE_NOTES.md": "92245afa4d0dbc3c950873dd94cc75f578f12bf296a3b04159857dcc7918a302",
-  "deploy/README.public.md": "a783d1ef48d71e0c16178a5a6ce878c04c1bad35107cf6977dc13c5cd870d768",
+  "README.md": "1f266832694cc610f44d15fdab0fbf269553c9a894bc43f5056746ef33cfb94c",
+  "README.zh-CN.md": "c148b23f3356cbf46a1a28f1a448f338025ff87bd0f6887fe92b3335662d7c06",
+  "RELEASE_NOTES.md": "cf7dc302eeedbc8d9aac22cd202e8a336b6863032960f0133c63e64ad87c65b6",
+  "RELEASE_NOTES.zh-CN.md": "82b7efc62210cfcedb189e539767bb0d0c110e7aa457ec895d3bed3cc8b1f67e",
   "deploy/selfhost.env.example": "31450e05641c8294725e8dded853c6a6ee8c1f883b5a3a32efc12b9d63aad383",
   "deploy/ts6-sfu-selfhost.service": "7ac0b95e51aee420e13e8ffed0b242a652ce864acba54d404d89e5729f043f34",
-  "docs/PUBLISHING.md": "821beb5f4ad80815cf963484084239336758ce9ac18a3245a35add606ac87c04",
-  "docs/SELFHOST.md": "02d2ffbe236a5ee1aa53fa56b2683ce7cd5df066e93040072283b0da8de36115",
+  "docs/SELFHOST.md": "97f4b4dd8e0c3aed5ef907ead7076f6569aa511b28b376fce5daccb7fea289dc",
+  "docs/SELFHOST.zh-CN.md": "5848f383e27a5c3b1b2cf8ebad7e36fa723e4135c89595550e42418fa4f414f5",
   "media/package-lock.json": "b3b95e9383c54069117b6e9ba90c3be5eea601cdee858225b98bf87d52c6cd2b",
   "media/package.json": "a9ba376b88f7a2a6ffc7912449afea5a69fcf448de011c0e3ec74188da63a2e4",
   "media/scripts/browser-test.sh": "0cd9f998fe7ff84bb8128d59f081c2a59d928f3dbb03b9f0b09b3b16aad2e24e",
@@ -63,5 +65,5 @@
   "scripts/instrumentation/control_return_code.h": "7e587e4bf17a469b243d43b4c23c5d77ddc598c8075e143e355f53e2b6decbd4",
   "scripts/instrumentation/control_return_code_test.c": "dc3f49df9c735c41e47d34eac41985cb35e41d96cafc92b53b5eaf208ff32235",
   "scripts/instrumentation/extend_control.c": "80e0a62e423ae08c21a2c256c95f2f6e111a65dff0c8b916947a9820e63374dc",
-  "scripts/package-selfhost.py": "55b7c43a163656960b4d923704014f7991b1e6368bdddec8e2e85c5661cad964"
+  "scripts/package-selfhost.py": "e5c064c16f1d5394a7d46f2d4f0a91ad39359497130ad4a59c9ac7114da94038"
 }
