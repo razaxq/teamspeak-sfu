@@ -1,0 +1,36 @@
+{
+  "name": "ts6-sfu-media-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
+    "test:webrtc": "sh scripts/browser-test.sh",
+    "build:web": "esbuild web/client.js --bundle --format=esm --outfile=web/dist/client.js",
+    "token": "node scripts/token.js",
+    "test:native-webrtc": "NATIVE_PUBLISHER=1 sh scripts/browser-test.sh",
+    "start:selfhost": "node scripts/selfhost.js",
+    "check:selfhost": "node scripts/selfhost.js --check"
+  },
+  "dependencies": {
+    "mediasoup": "3.27.1",
+    "ws": "8.22.0",
+    "@honeybbq/teamspeak-client": "0.2.2",
+    "ssh2": "1.17.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "mediasoup-client": "3.24.3",
+    "playwright": "1.63.0"
+  },
+  "allowScripts": {
+    "mediasoup@3.27.1": true,
+    "esbuild@0.28.2": true,
+    "ssh2@1.17.0": true,
+    "cpu-features@0.0.10": true
+  }
+}

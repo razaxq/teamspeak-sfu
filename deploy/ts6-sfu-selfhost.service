@@ -1,0 +1,22 @@
+[Unit]
+Description=Experimental TeamSpeak 6 native SFU
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/ts6-native-sfu-lab/media
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/ts6-sfu-selfhost.env
+ExecStart=/usr/bin/env node scripts/selfhost.js
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=45
+KillSignal=SIGTERM
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SFU 媒体实验</title>
+<style>body{font:16px system-ui;max-width:900px;margin:40px auto;padding:20px;background:#15202b;color:#eef4fa}input{width:95%;padding:12px}button{padding:10px;margin:12px 8px 12px 0}video{width:100%;max-width:640px}#status{white-space:pre-wrap}</style>
+<h1>SFU 媒体实验</h1>
+<p>验证自建 SFU 的屏幕共享与音视频转发。此页面使用实验协议，尚未接通官方 TeamSpeak 客户端。</p>
+<label>短期实验凭证 <input id="token" type="password" autocomplete="off" placeholder="粘贴发布或观看凭证"></label>
+<div><button id="connect">连接</button><button id="publish">共享屏幕</button><button id="watch">订阅当前共享</button><button id="stop">停止共享</button></div>
+<p id="status">等待连接</p><div id="media"></div>
+<script type="module" src="/lab/client.js"></script>
+</html>
