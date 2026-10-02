@@ -4,7 +4,7 @@
 
 建议具备软件开发经验，或熟悉使用 **Codex** 辅助开发、部署和排错的人操作本项目。需要能够配置 Linux 网络、检查诊断信息，并在自己的服务器上验证改动。
 
-这是 **v0.1.0-preview.1**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
+这是 **v0.1.0-preview.2**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
 
 目前仅支持 **Linux ARM64 / aarch64**，使用固定版本的 TeamSpeak 服务端镜像。已验证的官方 Windows 客户端为 **6.0.0-beta4.1，内部版本号 1779880475**。没有验证 x86_64 服务端、其他客户端版本、大规模房间或长期无人值守运行。
 
@@ -29,7 +29,7 @@ node --version
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
-tar -xzf ts6-native-sfu-lab-v0.1.0-preview.1.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
+tar -xzf ts6-native-sfu-lab-v0.1.0-preview.2.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
 cd /opt/ts6-native-sfu-lab
 npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
@@ -78,7 +78,7 @@ cat /var/lib/ts6-sfu-selfhost/access.txt
 ## 使用官方客户端
 
 1. 发布者和观看者连接 `公网IPv4:19987`，输入生成的服务器密码。显式写出端口，避免域名 SRV 记录跳转到别的服务器。
-2. 发布者使用 `access.txt` 中的一次性管理员权限密钥，断开并重新连接。当前仅管理员组（默认组 ID 为 6）可开播，不应给所有观看者管理员权限。
+2. 已连接的普通用户无需管理员权限即可开播。`access.txt` 中的管理员权限密钥仅用于管理服务器，不要为了共享屏幕而授予管理员权限。
 3. 双方进入同一频道。发布者打开屏幕共享，选择 Server / 服务器，再开始直播。
 4. 观看者从正在分享的图标进入观看；需要时由发布者允许加入。
 
@@ -98,7 +98,7 @@ TeamSpeak 数据保存在 Podman 卷 `ts6-sfu-selfhost-data`；密码和扩展�
 - `Unsupported ...`：架构或服务端镜像不匹配，请使用文档固定镜像。
 - `Deployment command failed`：检查系统依赖、镜像是否已拉取、端口和目录权限。
 - 容器已经存在：脚本不会接管同名容器。先核实它是否是本项目异常退出留下的容器，停止对应服务后再处理；不要删除未知容器。
-- 无共享入口：检查发布者管理员权限、重连、同一频道，以及 `viewerDiscoveryReady`。
+- 无共享入口：确认客户端连接的是已更新的实验服务器，重新连接、进入同一频道，并检查 `viewerDiscoveryReady`。
 - 能连接语音但不能观看：检查 18344/TCP、19125/UDP/TCP 和域名 A 记录。当前没有 TURN 中继。
 - 能看画面但没有共享声音和音量控件：这是此版本已知限制。
 
@@ -113,3 +113,7 @@ npm test
 ```
 
 测试覆盖鉴权、权限撤销、原生消息、观看审批、媒体资源清理和部署配置校验。可选的浏览器测试需要额外安装 Playwright Chromium，并构建网页资源；它们不能替代两个官方客户端之间的实际验收。
+
+## 从 preview.1 升级
+
+停止本项目的 systemd 服务，用 preview.2 源码更新程序目录，重新执行 `npm --prefix media ci --omit=dev` 和预检查，然后启动服务。保留 `/etc/ts6-sfu-selfhost.env`、状态目录和 Podman 数据卷。客户端重新连接后即可使用新策略，无需兑换管理员密钥。

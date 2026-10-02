@@ -2,7 +2,7 @@
 
 **English** | [简体中文](SELFHOST.zh-CN.md)
 
-This is **v0.1.0-preview.1**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
+This is **v0.1.0-preview.2**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
 
 This project is recommended for people with software development experience, or people familiar with using **Codex** for development, deployment, and troubleshooting. Be prepared to configure Linux networking, inspect diagnostics, and verify changes on your own server.
 
@@ -29,7 +29,7 @@ Extract the source package to `/opt/ts6-native-sfu-lab`, directly containing `me
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
-tar -xzf ts6-native-sfu-lab-v0.1.0-preview.1.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
+tar -xzf ts6-native-sfu-lab-v0.1.0-preview.2.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
 cd /opt/ts6-native-sfu-lab
 npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
@@ -80,7 +80,7 @@ The current runtime writes Chinese labels in `access.txt`: `实验地址` means 
 ## Use the official client
 
 1. Connect publisher and viewer to `PUBLIC_IPV4:19987` and enter the generated server password. Specify the port explicitly to avoid DNS SRV records directing you elsewhere.
-2. The publisher uses the administrator privilege key from `access.txt`, then disconnects and reconnects. Only the administrator group (default group ID 6) can publish in this preview. Do not grant all viewers administrator privileges.
+2. Connected ordinary users can publish without an administrator privilege key. The key in `access.txt` is only for server administration; do not grant administrator privileges just to enable sharing.
 3. Join the same channel. The publisher opens screen sharing, selects **Server**, and starts the stream.
 4. The viewer joins through the active sharing icon. The publisher approves the request when prompted.
 
@@ -100,7 +100,7 @@ If the service is running but not ready, check `status.json`, then inspect `jour
 - `Unsupported ...`: architecture or image mismatch. Use the pinned image in this guide.
 - `Deployment command failed`: check dependencies, image availability, free ports, and directory permissions.
 - Container already exists: the script will not take over an existing container. Check whether it is left over from this project's abnormal shutdown, and stop the owning service before handling it. Do not delete unknown containers.
-- No sharing entry: check publisher permissions, reconnect, join the same channel, and check `viewerDiscoveryReady`.
+- No sharing entry: confirm that the client is connected to the updated experimental server, reconnect, join the same channel, and check `viewerDiscoveryReady`.
 - Voice works but viewing fails: check 18344/TCP, 19125/UDP and TCP, and the DNS A record. No TURN relay is available.
 - Video works but shared audio and its volume control are missing: this is a known limitation.
 
@@ -115,3 +115,7 @@ npm test
 ```
 
 Tests cover authentication, permission revocation, native messages, viewing approval, media cleanup, and deployment configuration validation. Optional browser tests need Playwright Chromium and built web assets. They do not replace end-to-end acceptance testing between two official clients.
+
+## Upgrade from preview.1
+
+Stop this project's systemd service, update the application directory with the preview.2 source, rerun `npm --prefix media ci --omit=dev` and the preflight check, then start the service. Retain `/etc/ts6-sfu-selfhost.env`, the state directory, and the Podman data volume. Reconnect clients to use the updated policy; no administrator key is needed.

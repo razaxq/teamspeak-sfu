@@ -27,6 +27,7 @@ Deployers run the server components on their own infrastructure. Publishers and 
 | Screen video between unmodified official clients | Confirmed by a user |
 | Shared audio and the viewer's shared-audio volume control | **Not working** |
 | Normal TeamSpeak voice chat | Reported working; separate from shared audio |
+| Publishing by ordinary connected users | Supported; no administrator group required |
 | Configurable public host, ports, container, volume, and state directory | Implemented |
 | Pinned server verification and local extension compilation | Implemented |
 | Credentials and data retained across normal restarts | Verified in an isolated deployment |
@@ -86,7 +87,7 @@ Passwords, keys, and state are created on the deploying server. No shared creden
 ## Sharing and viewing
 
 1. Both users connect to the experimental TeamSpeak server and join the same channel.
-2. The publisher uses the generated administrator privilege key, then disconnects and reconnects. In this preview, publishing is restricted to the administrator group (default group ID 6).
+2. Any connected ordinary user can publish; no administrator group membership or privilege key is required. Keep the administrator key for server management only.
 3. The publisher opens screen sharing, selects **Server**, and starts the stream.
 4. The viewer joins through the sharing icon; the publisher approves the request when prompted.
 
@@ -124,7 +125,7 @@ npm ci
 npm test
 ```
 
-Release preparation passed 68 automated tests and an isolated installation/startup/restart/shutdown check. A fresh end-to-end test between two official clients was not repeated for the deployment package; video support is based on the earlier user confirmation.
+Release preparation passed 70 automated tests and an isolated installation/startup/restart/shutdown check. A fresh end-to-end test between two official clients was not repeated for the deployment package; video support is based on the earlier user confirmation.
 
 Useful contributions include shared-audio support and volume controls, x86_64 server compatibility, installation reliability, recovery after abnormal shutdown, and long-running tests. For issue reports, include your server architecture, operating system, full client version, publisher/viewer role, reproduction steps, and sanitized diagnostics.
 

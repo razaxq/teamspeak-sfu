@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { parseControlCommand } from './stream-control.js';
 
 // Trusted Query event/snapshot directory. A numeric client ID is never itself a
-// connection identity. Disconnect/move/permission-change events revoke grants.
-export function createClientDirectory({ serverId, publisherGroup, revokeClient, onEvent = () => {} }) {
+// connection identity. Disconnect, channel moves and identity changes revoke grants.
+export function createClientDirectory({ serverId, revokeClient, onEvent = () => {} }) {
   const clients = new Map(); let active = false, version = 0;
   function remove(id) { if (clients.delete(id)) revokeClient(id); }
   function upsert(args) {
@@ -11,12 +11,11 @@ export function createClientDirectory({ serverId, publisherGroup, revokeClient, 
     const channelId = args.cid ?? args.ctid;
     if (args.client_type !== '0') return;
     if (!/^[1-9][0-9]*$/.test(id ?? '') || !uid || !/^[1-9][0-9]*$/.test(channelId ?? '')) throw new Error('Invalid client directory row');
-    const groups = (args.client_servergroups ?? '').split(',');
-    const old = clients.get(id), canPublish = groups.includes(publisherGroup);
-    if (old && (old.uid !== uid || old.channelId !== channelId || old.canPublish !== canPublish
+    const old = clients.get(id);
+    if (old && (old.uid !== uid || old.channelId !== channelId
         || (args.client_lastconnected && old.connectedAt && old.connectedAt !== args.client_lastconnected))) remove(id);
     const retained = clients.get(id);
-    clients.set(id, { clientId:id, serverId, uid, channelId, canPublish,
+    clients.set(id, { clientId:id, serverId, uid, channelId, canPublish:true,
       sessionId:retained?.sessionId ?? randomUUID(), connectedAt:args.client_lastconnected ?? retained?.connectedAt });
   }
   return {
@@ -44,7 +43,6 @@ export function createClientDirectory({ serverId, publisherGroup, revokeClient, 
             remove(args.clid);
             if(args.client_unique_identifier && (args.cid ?? args.ctid))upsert(args);
           }
-          if(command==='notifyclientupdated' && Object.hasOwn(args,'client_servergroups')) remove(args.clid);
         }
       } catch { this.invalidate(); onEvent({event:'directory-notification-rejected',command:commandName,bytes:Buffer.byteLength(line)}); }
     },

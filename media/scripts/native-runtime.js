@@ -31,7 +31,7 @@ let launched=false, bridge, core, endpoint, directory, reader, stopping=false;
 const registry=createAccessRegistry({resolveClient:async id=>directory?.get(id),ttlSeconds:3600,onEvent:event,makeUserId:viewerPreview ? nativeUserId : undefined,
   resolveViewerGrant:(viewer,id)=>control.resolveViewerGrant(viewer,id)});
 const control=createStreamControl({registry,resolveClient:async id=>directory?.get(id),
-  canPublish:async identity=>identity.canPublish===true,
+  canPublish:async identity=>identity.canPublish===true && identity.clientId!==relayClientId,
   canView:async identity=>viewerPreview && identity.clientId!==relayClientId,
   endpoint:`${host}:${wsPort}`,maxStreams:4,onEvent:event});
 async function syncDiscovery() {
@@ -101,7 +101,7 @@ try {
   const response=previousToken ? '' : await reader.request('tokenadd tokentype=0 tokenid1=6 tokenid2=0');
   const token=previousToken ?? response.match(/(?:^|\s)token=([^\s]+)/)?.[1];
   if(!token)throw new Error('Preview administrator token unavailable');
-  writeFileSync(dir+'access.txt',`实验地址：${address}:${voicePort}\n对应域名：${host}（测试先用 IP，避免 SRV 跳转）\n服务器密码：${serverPassword}\n一次性管理员权限密钥：${token}\n\n连接后使用权限密钥，然后断开并重新连接，再测试 Server 屏幕共享。\n实验预览版；共享画面已验证，共享声音暂不可用。权限密钥用过后不会在重启时重新生成。\nSFU Endpoint 已设为 ${host}:${wsPort}，无需手动修改。\n`,{mode:0o600});
+  writeFileSync(dir+'access.txt',`实验地址：${address}:${voicePort}\n对应域名：${host}（测试先用 IP，避免 SRV 跳转）\n服务器密码：${serverPassword}\n一次性管理员权限密钥：${token}\n\n已连接的普通用户也可以使用 Server 屏幕共享，无需管理员权限。管理员权限密钥仅用于管理服务器。\n实验预览版；共享画面已验证，共享声音暂不可用。权限密钥用过后不会在重启时重新生成。\nSFU Endpoint 已设为 ${host}:${wsPort}，无需手动修改。\n`,{mode:0o600});
   chownSync(dir+'access.txt',accessUid,accessGid);chmodSync(dir+'access.txt',0o600);
   if(smokeTokenEnabled) {
   const smokeResponse=await reader.request('tokenadd tokentype=0 tokenid1=6 tokenid2=0');

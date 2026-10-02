@@ -25,7 +25,7 @@ test('native setup grants only its registered stream and stop enforces ownership
   assert.match((await control.dispatch('1',`stopstream id=${args.id} reason=1`)).notification,/^notifystreamstopped /);
   assert.equal(await registry.authorize(request),null);assert.equal(control.size,0);
 });
-test('stream admission rejects guests, malformed settings and concurrent duplicate setup', async () => {
+test('stream admission honors an explicit denial policy and rejects malformed settings and concurrent duplicate setup', async () => {
   const {control,registry,clients}=fixture();
   await registry.issue('1');clients.get('1').canPublish=false;
   assert.equal((await control.dispatch('1',setup)).error,2568);

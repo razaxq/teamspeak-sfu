@@ -3,8 +3,8 @@ import { parseControlCommand } from '../src/native/stream-control.js';
 import { createClientDirectory } from '../src/native/client-directory.js';
 
 // Query loss revokes media identities, but must not destroy the voice server.
-export async function startQueryDirectory({ port, password, serverId, registry, publisherGroup = '6', onEvent = () => {} }) {
-  const directory = createClientDirectory({serverId,publisherGroup,revokeClient:id=>registry.revokeClient(id),onEvent});
+export async function startQueryDirectory({ port, password, serverId, registry, onEvent = () => {} }) {
+  const directory = createClientDirectory({serverId,revokeClient:id=>registry.revokeClient(id),onEvent});
   let stopped=false, timer, reader, connected=false, serverUid;
   async function connect() {
     reader?.close();
