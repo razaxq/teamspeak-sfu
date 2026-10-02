@@ -15,6 +15,7 @@ import { createSnapshotReader } from './query-snapshot.js';
 import { startQueryDirectory } from './query-directory.js';
 import { configureServerSlots } from './server-slots.js';
 import { Client as VoiceClient, generateIdentity } from '@honeybbq/teamspeak-client';
+import { protectVoiceClientIdentity } from '../src/native/voice-client-identity.js';
 import { createNotificationRelay } from '../src/native/notification-relay.js';
 import { createChannelNotifications } from '../src/native/channel-notifications.js';
 
@@ -39,11 +40,15 @@ async function syncDiscovery() {
   if(!viewerPreview || !directory?.healthy)return;
   if(!relayReady || !relay?.healthy || directory.get(relayClientId)?.sessionId!==relaySessionId){
     await relay?.close();try{await relayVoice?.disconnect();}catch{}
-    relayVoice=new VoiceClient(generateIdentity(8),`127.0.0.1:${voicePort}`,'SFU 服务',{
+    const relayIdentity=generateIdentity(8);
+    relayVoice=new VoiceClient(relayIdentity,`127.0.0.1:${voicePort}`,'SFU 服务',{
       serverPassword,logger:Object.fromEntries(['debug','info','warn','error'].map(k=>[k,()=>{}]))});
     relayVoice.on('disconnected',()=>{relayReady=false;});
-    await relayVoice.connect();await relayVoice.waitConnected(AbortSignal.timeout(10000));
-    relayClientId=String(relayVoice.clid);
+    await relayVoice.connect();
+    const binding=protectVoiceClientIdentity(relayVoice,{onEvent:event});
+    await relayVoice.waitConnected(AbortSignal.timeout(10000));
+    if(!binding.clientId)throw new Error('Relay server-assigned identity unavailable');
+    relayClientId=String(binding.clientId);
     const identity=await directory.waitFor(relayClientId);
     relaySessionId=identity.sessionId;
     relay=createNotificationRelay({voice:relayVoice,identity,onEvent:event,resolveClient:async id=>directory.get(id)});

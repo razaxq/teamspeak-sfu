@@ -2,7 +2,7 @@
 
 **English** | [简体中文](SELFHOST.zh-CN.md)
 
-This is **v0.1.0-preview.4**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
+This is **v0.1.0-preview.5**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
 
 This project is recommended for people with software development experience, or people familiar with using **Codex** for development, deployment, and troubleshooting. Be prepared to configure Linux networking, inspect diagnostics, and verify changes on your own server.
 
@@ -29,7 +29,7 @@ Extract the source package to `/opt/ts6-native-sfu-lab`, directly containing `me
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
-tar -xzf ts6-native-sfu-lab-v0.1.0-preview.4.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
+tar -xzf ts6-native-sfu-lab-v0.1.0-preview.5.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
 cd /opt/ts6-native-sfu-lab
 npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
@@ -118,6 +118,6 @@ npm test
 
 Tests cover authentication, permission revocation, native messages, viewing approval, media cleanup, and deployment configuration validation. Optional browser tests need Playwright Chromium and built web assets. They do not replace end-to-end acceptance testing between two official clients.
 
-## Upgrade from preview.1, preview.2, or preview.3
+## Upgrade from preview.1 through preview.4
 
-Stop this project's systemd service, update the application directory with the preview.4 source, rerun `npm --prefix media ci --omit=dev` and the preflight check, then start the service. Retain `/etc/ts6-sfu-selfhost.env`, the state directory, and the Podman data volume. Reconnect clients to use the updated policy; no administrator key is needed.
+Stop this project's systemd service, update the application directory with the preview.5 source, rerun `npm --prefix media ci --omit=dev` and the preflight check, then start the service. Retain `/etc/ts6-sfu-selfhost.env`, the state directory, and the Podman data volume. Reconnect clients to use the updated policy; no administrator key is needed.

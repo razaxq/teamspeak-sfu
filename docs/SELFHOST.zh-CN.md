@@ -4,7 +4,7 @@
 
 建议具备软件开发经验，或熟悉使用 **Codex** 辅助开发、部署和排错的人操作本项目。需要能够配置 Linux 网络、检查诊断信息，并在自己的服务器上验证改动。
 
-这是 **v0.1.0-preview.4**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
+这是 **v0.1.0-preview.5**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
 
 目前仅支持 **Linux ARM64 / aarch64**，使用固定版本的 TeamSpeak 服务端镜像。已验证的官方 Windows 客户端为 **6.0.0-beta4.1，内部版本号 1779880475**。没有验证 x86_64 服务端、其他客户端版本、大规模房间或长期无人值守运行。
 
@@ -29,7 +29,7 @@ node --version
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
-tar -xzf ts6-native-sfu-lab-v0.1.0-preview.4.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
+tar -xzf ts6-native-sfu-lab-v0.1.0-preview.5.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
 cd /opt/ts6-native-sfu-lab
 npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
@@ -116,6 +116,6 @@ npm test
 
 测试覆盖鉴权、权限撤销、原生消息、观看审批、媒体资源清理和部署配置校验。可选的浏览器测试需要额外安装 Playwright Chromium，并构建网页资源；它们不能替代两个官方客户端之间的实际验收。
 
-## 从 preview.1、preview.2 或 preview.3 升级
+## 从 preview.1 至 preview.4 升级
 
-停止本项目的 systemd 服务，用 preview.4 源码更新程序目录，重新执行 `npm --prefix media ci --omit=dev` 和预检查，然后启动服务。保留 `/etc/ts6-sfu-selfhost.env`、状态目录和 Podman 数据卷。客户端重新连接后即可使用新策略，无需兑换管理员密钥。
+停止本项目的 systemd 服务，用 preview.5 源码更新程序目录，重新执行 `npm --prefix media ci --omit=dev` 和预检查，然后启动服务。保留 `/etc/ts6-sfu-selfhost.env`、状态目录和 Podman 数据卷。客户端重新连接后即可使用新策略，无需兑换管理员密钥。
