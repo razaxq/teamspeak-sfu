@@ -21,7 +21,7 @@ import { createChannelNotifications } from '../src/native/channel-notifications.
 
 export async function runNativeServer(config) {
 const {name,host,voicePort,queryPort,wsPort,mediaPort,dir,image,volume,extensionPath,
-  viewerPreview=true,audioFirst=false,tsMaxClients=0,accessUid=process.getuid(),accessGid=process.getgid(),smokeTokenEnabled=false}=config;
+  viewerPreview=true,audioFirst=false,audioRefresh=false,tsMaxClients=0,accessUid=process.getuid(),accessGid=process.getgid(),smokeTokenEnabled=false}=config;
 const run=(...args)=>execFileSync('podman',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
 // Refuse duplicate launches before changing the existing instance's status or files.
 if(run('ps','-a','--format','{{.Names}}').split('\n').includes(name))throw new Error('Preview container already exists');
@@ -82,7 +82,7 @@ try {
   writeFileSync(dir+'extension.jsonl','',{mode:0o666});chmodSync(dir+'extension.jsonl',0o666);
   const address=(await lookup(host,{family:4})).address;
   core=await MediaCore.create({listenIp:'0.0.0.0',announcedAddress:address,mediaPort,maxRooms:0,maxPeers:0});
-  endpoint=await startNativePublisherServer({core,host:'0.0.0.0',port:wsPort,maxSockets:0,audioFirst,
+  endpoint=await startNativePublisherServer({core,host:'0.0.0.0',port:wsPort,maxSockets:0,audioFirst,audioRefresh,
     // Official desktop beta4.1 sends the destination WebSocket URL as Origin.
     allowedOrigins:[`ws://${host}:${wsPort}`],
     authorize:registry.authorize,subscribeRevocations:registry.subscribeRevocations,
@@ -136,13 +136,21 @@ try {
   const status={ready:true,publisherPreview:true,viewerPreview,viewerDiscoveryReady:relayReady,officialDesktopClientTested:false,host,voicePort,wsPort,mediaPort,
     announcedAddress:address,productionModified:false,container:name,teamSpeakMaxClients,
     sfuCapacityLimits:false,credentialLifetime:'connection'};
-  writeFileSync(dir+'status.json',JSON.stringify(status,null,2)+'\n');event({event:'preview-ready',...status});
+  const writeStatus=()=>{
+    Object.assign(status,{ready:directory.healthy && (!viewerPreview || (relayReady && !!relay?.healthy)),
+      directoryHealthy:directory.healthy,viewerDiscoveryReady:directory.healthy && relayReady && !!relay?.healthy,
+      experimentalAudioRefresh:audioRefresh,updatedAt:new Date().toISOString()});
+    writeFileSync(dir+'status.json.tmp',JSON.stringify(status,null,2)+'\n');
+    renameSync(dir+'status.json.tmp',dir+'status.json');
+  };
+  writeStatus();event({event:'preview-ready',...status});
   console.log(JSON.stringify(status));
   while(!stopping) {
     await new Promise(resolve=>setTimeout(resolve,5000));
     if(stopping)break;
     if(core.worker.closed || run('inspect',name,'--format','{{.State.Running}}')!=='true')throw new Error('Preview dependency unavailable');
     try{await syncDiscovery();}catch{event({event:'viewer-discovery-sync-failed'});}
+    writeStatus();
     event({event:'media-counts',directoryHealthy:directory.healthy,...core.counts()});
     const diagnostics=await collectMediaDiagnostics(core);
     if(diagnostics.transports.length || diagnostics.producers.length || diagnostics.consumers.length)

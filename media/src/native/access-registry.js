@@ -5,7 +5,7 @@ const digest = token => createHash('sha256').update(token).digest('hex');
 const field = value => typeof value === 'string' && value.length > 0 && value.length <= 256;
 const same = (a, b) => b && ['serverId', 'clientId', 'sessionId', 'uid', 'channelId'].every(k => a[k] === b[k]);
 const publishCommands = new Set(['create-stream', 'transport-connect', 'transport-produce', 'set-paused', 'close-stream', 'join-response']);
-const viewCommands = new Set(['join-request', 'transport-connect', 'consume-stream', 'set-paused', 'close-stream']);
+const viewCommands = new Set(['join-request', 'transport-connect', 'consume-stream', 'set-paused', 'close-stream', 'close-consumer-producer']);
 
 // Custom experimental server credentials, not an implementation of an official
 // signing algorithm. resolveClient must return a trusted, live connection snapshot

@@ -9,9 +9,9 @@ const scope = ['room','peer','streamId','userId','publisherPeer','role','exp'];
 // Candidate beta4.1 wire adapter. Kept behind enableViewers until desktop tests.
 // Join RPC acknowledgment precedes the separately correlated join-response.
 export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin=()=>{},leavePublisher=async()=>{},
-  reserveViewer=()=>({activate(){},release(){}}),requestClient,onEvent=()=>{},onFailure=()=>{},audioActivation=false,audioFirst=false}) {
+  reserveViewer=()=>({activate(){},release(){}}),requestClient,onEvent=()=>{},onFailure=()=>{},audioActivation=false,audioFirst=false,audioRefresh=false}) {
   let binding, closed=false, ready=false, connected=false, deferred, background=Promise.resolve();
-  let reservation,expiryTimer,approvalData,joinForwarded=false,departureSent=false,initialStateSent=false,videoCodec,awaitingVideo=false,videoAnnounced=false;
+  let reservation,expiryTimer,approvalData,joinForwarded=false,departureSent=false,initialStateSent=false,videoCodec,audioCodec,awaitingVideo=false,videoAnnounced=false,audioRefreshRequested=false,audioRefreshPending=false;
   const consumers=new Map(),paused={audio:false,video:false};
   const media=createViewerMediaSession({core,authorize,approveJoin:async request=>{
     joinForwarded=true;
@@ -78,10 +78,14 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
           const response=await requestClient('join-response',{id:binding.streamId,userId:binding.publisherPeer,
             accepted:true,...transport});
           requireValue(response.err===0,'VIEWER_JOIN_RESPONSE_REJECTED');
-          videoCodec=transport.videoCodec;
+          videoCodec=transport.videoCodec;audioCodec=transport.audioCodec;
           requireValue(!closed,'VIEWER_SESSION_CLOSED');reservation.activate();
           onEvent({event:'native-viewer-join-acknowledged'});
         };
+      } else if(frame.cmd==='close-consumer-producer') {
+        requireValue(ready && args.kind==='consumer' && typeof args.consumerProducerId==='string' && args.consumerProducerId.length>0,'INVALID_CONSUMER_CLOSE');
+        await media.closeConsumer({token:frame.token,streamId:binding.streamId,consumerId:args.consumerProducerId});
+        for(const [kind,consumer] of consumers)if(consumer.id===args.consumerProducerId)consumers.delete(kind);
       } else if(frame.cmd==='close-stream') {
         requireValue(binding,'VIEWER_NOT_JOINED');await cleanup();
       } else if(frame.cmd==='transport-connect') {
@@ -124,6 +128,14 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
             const response=await requestClient('set-paused',{id:binding.streamId,userId:binding.publisherPeer,...state});
             requireValue(response.err===0,'VIEWER_SOURCE_STATE_REJECTED');
             onEvent({event:'native-viewer-source-state-synced',...state});
+            // Opt-in beta4.1 experiment: a fresh audio track repeats the native
+            // track callback after the previous track pointer has been stored.
+            if(audioRefresh && audio && audioCodec && !audioRefreshRequested){
+              audioRefreshRequested=true;audioRefreshPending=true;
+              const refreshed=await requestClient('main-producer-changed',{id:binding.streamId,userId:binding.publisherPeer,kind:'audio',codec:audioCodec});
+              requireValue(refreshed.err===0,'VIEWER_AUDIO_REFRESH_REJECTED');
+              onEvent({event:'native-viewer-audio-refresh-announced'});
+            }
           };
         }
       } else if(frame.cmd==='consume-stream') {
@@ -134,10 +146,13 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
         const kinds=args.filter ? [args.filter] : stageAudio ? ['audio'] : awaitingVideo ? ['video'] : ['audio','video'];
         for(const kind of kinds) {
           let consumer=consumers.get(kind);
-          if(!consumer) {
-            try { consumer=await media.consume({token:frame.token,streamId:binding.streamId,kind,rtpCapabilities:args.rtpCapabilities}); }
+          const refresh=kind==='audio' && args.filter==='audio' && audioRefreshPending;
+          const replace=refresh && consumer;
+          if(!consumer || replace) {
+            try { consumer=await media.consume({token:frame.token,streamId:binding.streamId,kind,rtpCapabilities:args.rtpCapabilities,...(replace?{replaceConsumerId:consumer.id}:{})}); }
             catch(error){if(error.code==='PUBLISHER_MEDIA_UNAVAILABLE'){if(stageAudio && kind==='audio')kinds.push('video');continue;}throw error;}
             consumers.set(kind,consumer);
+            if(refresh){audioRefreshPending=false;onEvent({event:'native-viewer-audio-refreshed'});}
           }
           if(connected)await media.setPaused({token:frame.token,streamId:binding.streamId,consumerId:consumer.id,paused:paused[kind]});
           // The native parser expects optional audio/video objects, not an array.
@@ -151,7 +166,7 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
     afterResponse() {
       if(!deferred || closed)return;
       const action=deferred;deferred=undefined;
-      background=Promise.resolve().then(action).catch(async error=>{
+      background=background.then(action).catch(async error=>{
         const report=!closed;await cleanup();if(report)onFailure(error?.code ?? 'VIEWER_JOIN_FAILED');
       });
     },

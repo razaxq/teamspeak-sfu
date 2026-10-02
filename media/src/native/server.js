@@ -9,7 +9,7 @@ import { createViewerApprovalBroker } from './viewer-approval.js';
 // Explicit opt-in experiment with a caller-owned MediaCore and verifier.
 // No CLI, lab-token fallback, native access-info issuer, or implied TS support.
 export async function startNativePublisherServer({ core, authorize, host = '127.0.0.1', port = 0,
-  allowedOrigins = [], maxSockets = 0, subscribeRevocations, onJoinResponse, enableViewers = false, audioActivation = false, audioFirst = false, reserveViewer, onEvent = () => {} } = {}) {
+  allowedOrigins = [], maxSockets = 0, subscribeRevocations, onJoinResponse, enableViewers = false, audioActivation = false, audioFirst = false, audioRefresh = false, reserveViewer, onEvent = () => {} } = {}) {
   if (!core || typeof authorize !== 'function') throw new TypeError('Core and native verifier required');
   const server = http.createServer((_req, res) => { res.writeHead(501); res.end(); });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 65536, perMessageDeflate: false });
@@ -80,7 +80,7 @@ export async function startNativePublisherServer({ core, authorize, host = '127.
             if (ws.readyState !== WebSocket.OPEN) return;
             session = createNativeViewerSession({core,authorize,approveJoin: request => broker.approveJoin(request),
               cancelJoin: request => broker.cancelJoin(request),
-              leavePublisher: request => broker.removeViewer(request),reserveViewer,onEvent,audioActivation,audioFirst,
+              leavePublisher: request => broker.removeViewer(request),reserveViewer,onEvent,audioActivation,audioFirst,audioRefresh,
               requestClient: (cmd,args) => channel.request(cmd,args),
               onFailure: code => {onEvent({event:'native-viewer-failed',code});ws.close(1008,'Viewer request rejected');}});
             sessions.set(session,ws);channels.set(session,channel);

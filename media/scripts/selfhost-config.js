@@ -28,6 +28,9 @@ export function selfhostConfig(env=process.env) {
   if(!/^\d+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots)>2147483647)
     throw new Error('Invalid SFU_TS_MAXCLIENTS: use 0 to retain the TeamSpeak setting, or a positive slot count');
   config.tsMaxClients=Number(slots);
+  const audioRefresh=env.SFU_EXPERIMENTAL_AUDIO_REFRESH ?? '0';
+  if(!['0','1'].includes(audioRefresh))throw new Error('Invalid SFU_EXPERIMENTAL_AUDIO_REFRESH: use 0 or 1');
+  config.audioRefresh=audioRefresh==='1';
   if(!/^[a-zA-Z0-9][a-zA-Z0-9./:@_-]*$/.test(config.image))throw new Error('Invalid SFU_SERVER_IMAGE');
   return config;
 }

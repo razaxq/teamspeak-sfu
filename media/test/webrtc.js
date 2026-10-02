@@ -11,6 +11,9 @@ import { collectMediaDiagnostics } from '../src/native/media-diagnostics.js';
 import { createViewerMediaSession } from '../src/native/viewer-media.js';
 const nativePublisher = process.env.NATIVE_PUBLISHER === '1';
 const nativeViewer = process.env.NATIVE_VIEWER === '1';
+const audioRefresh=process.env.NATIVE_AUDIO_REFRESH === '1';
+const audioFirst=nativeViewer && process.env.NATIVE_AUDIO_FIRST!=='0';
+if(audioRefresh&&!nativeViewer)throw new Error('Audio refresh test requires native viewers');
 const viewerTokens=new Map();
 const viewerMediaAdapter = process.env.VIEWER_MEDIA_ADAPTER === '1';
 if(nativeViewer && (!nativePublisher || viewerMediaAdapter))throw new Error('Native viewer needs native publisher without bridge');
@@ -46,7 +49,7 @@ try {
     await build({entryPoints:['test/viewer-media-browser-client.js'],bundle:true,format:'iife',outfile:'.runtime/viewer-media-browser-client.js'});
   }
   if (nativePublisher) {
-    nativeServer = await startNativePublisherServer({ core: app.core, allowedOrigins: [url],enableViewers:nativeViewer,audioFirst:nativeViewer,
+    nativeServer = await startNativePublisherServer({ core: app.core, allowedOrigins: [url],enableViewers:nativeViewer,audioFirst,audioRefresh,
       authorize: request => request.token === nativeToken ? nativeIdentity : viewerTokens.get(request.token) });
     await build({ entryPoints: ['test/native-browser-client.js'], bundle: true, format: 'iife',
       outfile: '.runtime/native-browser-client.js' });
@@ -62,7 +65,7 @@ try {
       viewerTokens.set(token,{...nativeIdentity,peer,userId:peer,role:'view',publisherPeer:'publisher'});
       await page.addScriptTag({path:'.runtime/native-viewer-browser-client.js'});
       await page.evaluate(async options=>{window.lab=new window.NativeViewer();await window.lab.connect(options);},
-        {url:`ws://127.0.0.1:${nativeServer.port}/`,token,streamId:'stream'});
+        {url:`ws://127.0.0.1:${nativeServer.port}/`,token,streamId:'stream',expectAudioRefresh:audioRefresh});
       return page;
     }
     if(viewerMediaAdapter && role==='view'){
@@ -133,7 +136,7 @@ try {
       }
     },tracks);
     if(nativeViewer){
-      const order=await page.evaluate(()=>[...window.lab.consumers.values()].map(c=>c.kind));
+      const order=await page.evaluate(()=>window.lab.creationOrder);
       assert.deepEqual(order,['audio','video']);report.nativeAudioFirstCreationOrder=order;
     }
     let result;
@@ -191,6 +194,10 @@ try {
   const after=await publisherStats();
   assert.equal(before.transports.length,1);assert.equal(after.transports.length,1);
   assert.equal(after.producers.length,2);
+  if(audioRefresh){
+    report.audioRefreshCounts=await Promise.all([viewer1,viewer2].map(page=>page.evaluate(()=>window.lab.audioRefreshCount)));
+    assert.deepEqual(report.audioRefreshCounts,[1,1]);
+  }
   report.active=await counts();
   assert.deepEqual(report.active,{rooms:1,peers:3,transports:3,producers:2,consumers:4});
   report.publisherTransports=after.transports.length;
@@ -213,7 +220,9 @@ try {
   await browser.close();browser=null;
   for(let i=0;i<100&&(await counts()).rooms;i++)await new Promise(r=>setTimeout(r,10));
   report.final=await counts();assert.equal(report.final.rooms,0);assert.equal(report.final.transports,0);
+  report.experimentalAudioRefresh=audioRefresh;
+  report.experimentalAudioFirst=audioFirst;
   report.result='PASS';
-  writeFileSync(new URL(nativeViewer?'../evidence/webrtc-native-viewer-test.json':viewerMediaAdapter?'../evidence/webrtc-viewer-media-test.json':nativePublisher?'../evidence/webrtc-native-publisher-test.json':externalUrl?'../evidence/webrtc-container-test.json':'../evidence/webrtc-test.json',import.meta.url),JSON.stringify(report,null,2)+'\n');
+  writeFileSync(new URL(audioRefresh?'../evidence/webrtc-audio-refresh-test.json':nativeViewer?'../evidence/webrtc-native-viewer-test.json':viewerMediaAdapter?'../evidence/webrtc-viewer-media-test.json':nativePublisher?'../evidence/webrtc-native-publisher-test.json':externalUrl?'../evidence/webrtc-container-test.json':'../evidence/webrtc-test.json',import.meta.url),JSON.stringify(report,null,2)+'\n');
   console.log(JSON.stringify(report,null,2));
 } finally { await browser?.close();await Promise.all(viewerSessions.map(s=>s.close()));await nativeServer?.stop();await app?.stop(); }

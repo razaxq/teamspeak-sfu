@@ -14,8 +14,9 @@ export function createViewerMediaSession({core,authorize,approveJoin,subscribeRe
       || !Number.isInteger(maxPending) || maxPending<1) throw new TypeError('Viewer admission and approval required');
   let binding,peer,transportId,connected=false,closed=false,expiryTimer;
   let tail=Promise.resolve(),pending=0;
-  const consumers=new Map();
-  const cleanup=()=>{clearTimeout(expiryTimer);if(peer)core.leave(peer);consumers.clear();};
+  const consumers=new Map(),retired=new Set();
+  const retire=id=>{consumers.delete(id);retired.add(id);if(retired.size>64)retired.delete(retired.values().next().value);};
+  const cleanup=()=>{clearTimeout(expiryTimer);if(peer)core.leave(peer);consumers.clear();retired.clear();};
   const invalidate=({userId,streamId})=>{
     if(closed || !binding || binding.userId!==userId || (streamId && binding.streamId!==streamId))return false;
     closed=true;cleanup();return true;
@@ -93,7 +94,7 @@ export function createViewerMediaSession({core,authorize,approveJoin,subscribeRe
         await check(token,streamId,'transport-connect');connected=true;
       });
     },
-    consume({token,streamId,kind,rtpCapabilities}) {
+    consume({token,streamId,kind,rtpCapabilities,replaceConsumerId}) {
       const capabilities=structuredClone(rtpCapabilities);
       return enqueue(async()=>{
         await check(token,streamId,'consume-stream');
@@ -104,12 +105,25 @@ export function createViewerMediaSession({core,authorize,approveJoin,subscribeRe
         const owner=peer.room.peers.get(binding.publisherPeer);
         const source=owner && [...owner.producers.values()].find(p=>p.kind===kind && !p.closed);
         requireValue(source,'PUBLISHER_MEDIA_UNAVAILABLE');
+        if(replaceConsumerId!==undefined){
+          requireValue(consumers.get(replaceConsumerId)===source.id,'CONSUMER_SCOPE_MISMATCH');
+          await core.request(peer,'closeConsumer',{consumerId:replaceConsumerId});retire(replaceConsumerId);
+        }
         const consumer=await core.request(peer,'consume',{transportId,producerId:source.id,rtpCapabilities:capabilities});
         try {
           await check(token,streamId,'consume-stream');
           consumers.set(consumer.id,source.id);
           return {...consumer,sourcePaused:source.paused};
         } catch(error){if(!peer.closed)await core.request(peer,'closeConsumer',{consumerId:consumer.id});throw error;}
+      });
+    },
+    closeConsumer({token,streamId,consumerId}) {
+      return enqueue(async()=>{
+        await check(token,streamId,'close-consumer-producer');
+        requireValue(peer && transportId,'VIEWER_TRANSPORT_STATE');
+        if(retired.has(consumerId))return;
+        requireValue(consumers.has(consumerId),'CONSUMER_SCOPE_MISMATCH');
+        await core.request(peer,'closeConsumer',{consumerId});retire(consumerId);
       });
     },
     sourcePauseState({token,streamId}) {

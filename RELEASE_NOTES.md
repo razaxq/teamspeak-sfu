@@ -1,3 +1,11 @@
+# Unreleased
+
+- Handle viewer `close-consumer-producer` requests with ownership checks and idempotent cleanup. Previously this unsupported command disconnected the viewer. A viewer cannot close a publisher or another viewer's consumer.
+- Add a default-off audio-track refresh experiment (`SFU_EXPERIMENTAL_AUDIO_REFRESH=1`). Refresh only once per viewing session and accept old-consumer cleanup both before and after replacement. This is **not a confirmed fix for official-client shared audio**.
+- Serialize deferred viewer notifications and update the runtime status atomically with current Query/relay health and a timestamp.
+
+Validation: **91 automated tests passed**. Real Chromium ICE/DTLS/SRTP tests with two viewers decoded AV1 video and Opus audio, verified independent pause/resume and complete cleanup, both with refresh enabled and disabled. Each viewer refreshed its audio consumer exactly once in the enabled test. A deployed protocol smoke test also passed discovery, admission, audio refresh, repeated old-consumer cleanup and stop cleanup with three synthetic non-admin clients; that test sent no real media. Official-client audio and volume controls still require user acceptance testing.
+
 # v0.1.0-preview.5
 
 **English** | [简体中文](RELEASE_NOTES.zh-CN.md)

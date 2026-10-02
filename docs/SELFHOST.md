@@ -121,3 +121,13 @@ Tests cover authentication, permission revocation, native messages, viewing appr
 ## Upgrade from preview.1 through preview.4
 
 Stop this project's systemd service, update the application directory with the preview.5 source, rerun `npm --prefix media ci --omit=dev` and the preflight check, then start the service. Retain `/etc/ts6-sfu-selfhost.env`, the state directory, and the Podman data volume. Reconnect clients to use the updated policy; no administrator key is needed.
+
+## Experimental audio refresh (development source)
+
+The development source supports `SFU_EXPERIMENTAL_AUDIO_REFRESH=1` in the service environment file. The default is `0`; preview.5 archives do not include this option. Restart the service after changing it, then start a new share and rejoin as a viewer.
+
+This requests one replacement of each viewer's audio consumer after initial track setup. It is an experiment for the missing audio support/volume-control state in the tested beta4.1 client, not a confirmed audio fix. Old-consumer cleanup is authenticated and scoped to that viewer; repeated cleanup cannot close the replacement or another viewer's media. Set the option back to `0` and restart to disable the experiment.
+
+With two unmodified official clients, check video, shared sound and the shared-audio volume control separately. Also leave and rejoin, then stop and restart sharing. Report the complete client version and sanitized logs from both roles. Browser AV1/Opus decoding tests alone do not confirm official-client compatibility.
+
+`status.json` now refreshes approximately every five seconds when the runtime is healthy, with `updatedAt`, `directoryHealthy`, `viewerDiscoveryReady` and `experimentalAudioRefresh`. Check the service process and timestamp as well as `ready`: an abruptly killed process cannot update its status file.

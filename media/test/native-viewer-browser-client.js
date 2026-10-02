@@ -2,9 +2,9 @@ import {Device} from 'mediasoup-client';
 // Synthetic browser exercising the candidate TeamSpeak wire profile, not an
 // official client. Its agreement with the server is not compatibility proof.
 class NativeViewer {
-  constructor(){this.pending=new Map();this.consumers=new Map();this.nextId=1;}
-  async connect({url,token,streamId}) {
-    this.token=token;this.streamId=streamId;
+  constructor(){this.pending=new Map();this.consumers=new Map();this.nextId=1;this.creationOrder=[];}
+  async connect({url,token,streamId,expectAudioRefresh=false}) {
+    this.token=token;this.streamId=streamId;this.expectAudioRefresh=expectAudioRefresh;
     const joined=new Promise((resolve,reject)=>{this.joined=resolve;this.joinFailed=reject;});
     this.ws=new WebSocket(url);
     this.ws.onmessage=async({data})=>{
@@ -19,6 +19,18 @@ class NativeViewer {
           this.recvTransport.on('connect',({dtlsParameters},done,fail)=>this.rpc('transport-connect',{dtlsParameters}).then(done,fail));
           this.ws.send(JSON.stringify({responseId:message.requestId,err:0}));this.joined();
         } catch(error){this.joinFailed(error);}return;
+      }
+      if(message.cmd==='main-producer-changed' && message.args.kind==='audio'){
+        try {
+          const previous=[...this.consumers.values()].find(c=>c.kind==='audio');
+          const result=await this.rpc('consume-stream',{filter:'audio',rtpCapabilities:this.device.rtpCapabilities});
+          const consumer=await this.recvTransport.consume(result.audio);this.consumers.set(consumer.id,consumer);
+          if(previous){previous.close();this.consumers.delete(previous.id);await this.rpc('close-consumer-producer',{kind:'consumer',consumerProducerId:previous.id});}
+          await this.rpc('set-paused',{audio:false,video:false});
+          this.audioRefreshCount=(this.audioRefreshCount??0)+1;this.audioRefreshed=true;this.audioReady?.();
+          this.ws.send(JSON.stringify({responseId:message.requestId,err:0}));
+        }catch(error){this.refreshError=error;this.audioReady?.();}
+        return;
       }
       if(message.cmd==='main-producer-changed'){
         this.videoAvailable=true;this.videoReady?.();
@@ -51,7 +63,7 @@ class NativeViewer {
     this.prepared ??= (async()=>{
       const initial=await this.rpc('consume-stream',{rtpCapabilities:this.device.rtpCapabilities});
       const install=async options=>{for(const option of Object.values(options)){
-        const consumer=await this.recvTransport.consume(option);this.consumers.set(consumer.id,consumer);
+        const consumer=await this.recvTransport.consume(option);this.consumers.set(consumer.id,consumer);this.creationOrder.push(consumer.kind);
       }};
       await install(initial);await this.rpc('set-paused',{audio:false,video:false});
       if(this.videoExpected && !initial.video){
@@ -64,6 +76,11 @@ class NativeViewer {
       }
     })();
     await this.prepared;
+    if(this.expectAudioRefresh && !this.audioRefreshed && !this.refreshError)await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(new Error('Audio refresh timeout')),7000);
+      this.audioReady=()=>{clearTimeout(timer);resolve();};
+    });
+    if(this.refreshError)throw this.refreshError;
     const consumer=[...this.consumers.values()].find(c=>c.producerId===producerId);
     if(!consumer)throw new Error('Producer absent');return consumer;
   }

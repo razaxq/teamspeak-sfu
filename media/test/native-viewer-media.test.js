@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { MediaCore } from '../src/core.js';
 import { createAccessRegistry } from '../src/native/access-registry.js';
+import { createNativeViewerSession } from '../src/native/viewer-session.js';
 import { createViewerMediaSession } from '../src/native/viewer-media.js';
 
 async function fixture(t,port,approveJoin=async()=>true,approvalTimeoutMs=1000) {
@@ -70,4 +71,66 @@ test('two approved viewers consume only the admitted publisher and own their con
   // Publisher lifecycle belongs to its separate session; viewer revocation
   // cannot close the publisher's transport or resume its source.
   assert.equal(publisher.producers.get(produced.id).paused,true);
+});
+
+
+async function publishAudioVideo(f) {
+  const principal=await f.registry.authorize({token:f.publisher.token,cmd:'create-stream',args:{id:'stream'}});
+  const peer=await f.core.join(principal),transport=await f.core.request(peer,'createTransport',{direction:'send'});
+  for(const kind of ['audio','video'])await f.core.request(peer,'produce',{transportId:transport.id,kind,paused:false,
+    rtpParameters:{codecs:[kind==='audio'?{mimeType:'audio/opus',payloadType:111,clockRate:48000,channels:2,parameters:{}}:{mimeType:'video/AV1',payloadType:105,clockRate:90000,parameters:{}}],
+      encodings:[{ssrc:kind==='audio'?987001:987002}],rtcp:{cname:'replacement-test'}}});
+  return peer;
+}
+
+test('consumer replacement and cleanup are scoped, idempotent, and preserve the other track',async t=>{
+  const f=await fixture(t,0),publisher=await publishAudioVideo(f),v=f.viewers[0],other=f.viewers[1];
+  const {transportInfo}=await v.session.open(v.auth),caps=transportInfo.routerCapabilities;
+  const audio=await v.session.consume({...v.auth,kind:'audio',rtpCapabilities:caps});
+  const video=await v.session.consume({...v.auth,kind:'video',rtpCapabilities:caps});
+  await other.session.open(other.auth);
+  const foreign=await other.session.consume({...other.auth,kind:'audio',rtpCapabilities:caps});
+  await assert.rejects(v.session.closeConsumer({...v.auth,consumerId:foreign.id}),/CONSUMER_SCOPE_MISMATCH/);
+  await assert.rejects(v.session.consume({...v.auth,kind:'audio',rtpCapabilities:caps,replaceConsumerId:video.id}),/CONSUMER_SCOPE_MISMATCH/);
+  const renewed=await v.session.consume({...v.auth,kind:'audio',rtpCapabilities:caps,replaceConsumerId:audio.id});
+  assert.notEqual(renewed.id,audio.id);assert.equal(renewed.producerId,audio.producerId);
+  assert.equal(f.core.counts().consumers,3);assert.equal(publisher.producers.size,2);
+  await v.session.closeConsumer({...v.auth,consumerId:audio.id});
+  await v.session.closeConsumer({...v.auth,consumerId:audio.id});
+  assert.equal(f.core.counts().consumers,3);
+  await assert.rejects(v.session.closeConsumer({...v.auth,consumerId:audio.producerId}),/CONSUMER_SCOPE_MISMATCH/);
+  await v.session.closeConsumer({...v.auth,consumerId:renewed.id});
+  assert.equal(f.core.counts().consumers,2);
+  f.registry.revokeClient('2');
+  await assert.rejects(v.session.closeConsumer({...v.auth,consumerId:audio.id}),/VIEWER_SESSION_CLOSED/);
+});
+
+for(const closeFirst of [false,true])test(`opt-in audio refresh replaces once with old cleanup ${closeFirst?'before':'after'} consume`,async t=>{
+  const f=await fixture(t,0);await publishAudioVideo(f);
+  const auth=f.viewers[0].auth,requests=[],events=[];
+  const session=createNativeViewerSession({core:f.core,authorize:f.registry.authorize,approveJoin:async()=>true,
+    requestClient:async(cmd,args)=>{requests.push({cmd,args});return {err:0};},audioRefresh:true,onEvent:e=>events.push(e)});
+  t.after(()=>session.close());
+  let seq=0;
+  const rpc=async(cmd,args)=>{const response=JSON.parse(await session.dispatch(JSON.stringify({cmd,args:{id:'stream',...args},token:auth.token,requestId:String(++seq)})));session.afterResponse();return response.args;};
+  const until=async predicate=>{for(let i=0;i<200&&!predicate();i++)await new Promise(r=>setTimeout(r,5));assert.ok(predicate());};
+  await rpc('join-request',{isRemove:false,signedIdentityType:0,signedIdentity:'synthetic',codecs:['AV1']});
+  await until(()=>requests.some(r=>r.cmd==='join-response'));
+  const {transportInfo}=requests.find(r=>r.cmd==='join-response').args;
+  const initial=await rpc('consume-stream',{rtpCapabilities:transportInfo.routerCapabilities});
+  await rpc('transport-connect',{dtlsParameters:{role:'client',fingerprints:transportInfo.dtlsParameters.fingerprints}});
+  await rpc('set-paused',{audio:false,video:false});
+  await until(()=>requests.some(r=>r.cmd==='main-producer-changed'));
+  assert.deepEqual(requests.find(r=>r.cmd==='main-producer-changed').args,{id:'stream',userId:session.principal.publisherPeer,kind:'audio',codec:'opus'});
+  if(closeFirst)await rpc('close-consumer-producer',{kind:'consumer',consumerProducerId:initial.audio.id});
+  const refreshed=await rpc('consume-stream',{filter:'audio',rtpCapabilities:transportInfo.routerCapabilities});
+  assert.notEqual(refreshed.audio.id,initial.audio.id);assert.equal(refreshed.video,undefined);
+  await rpc('close-consumer-producer',{kind:'consumer',consumerProducerId:initial.audio.id});
+  await rpc('set-paused',{audio:false,video:false});
+  const again=await rpc('consume-stream',{filter:'audio',rtpCapabilities:transportInfo.routerCapabilities});
+  assert.equal(again.audio.id,refreshed.audio.id);
+  const unchanged=await rpc('consume-stream',{filter:'video',rtpCapabilities:transportInfo.routerCapabilities});
+  assert.equal(unchanged.video.id,initial.video.id);assert.equal(f.core.counts().consumers,2);
+  assert.equal(events.filter(e=>e.event==='native-viewer-audio-refreshed').length,1);
+  await assert.rejects(rpc('close-consumer-producer',{kind:'producer',consumerProducerId:initial.audio.producerId}),/INVALID_CONSUMER_CLOSE/);
 });

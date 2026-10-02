@@ -40,6 +40,8 @@ The tested official client is **TeamSpeak 6.0.0-beta4.1 for Windows, build 17798
 
 The media core has automated and browser audio/video tests, but these do **not** establish working shared audio in the official client. See the [release notes](RELEASE_NOTES.md) for the scope of validation.
 
+Development source adds authenticated consumer cleanup and a default-off audio refresh experiment. Shared audio remains unconfirmed; see [test instructions](docs/SELFHOST.md#experimental-audio-refresh-development-source).
+
 ## How it works
 
 | Component | Role |
