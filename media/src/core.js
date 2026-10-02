@@ -1,4 +1,5 @@
 import { createWorker } from 'mediasoup';
+import {isLiveExpiry} from './expiry.js';
 
 export class LabError extends Error {}
 function requireValue(condition, code) { if (!condition) throw new LabError(code); }
@@ -41,10 +42,10 @@ export class MediaCore {
     return result;
   }
   async admit(claims, notify) {
-    requireValue(this.counts().peers < this.maxPeers, 'PEER_LIMIT');
+    requireValue(this.maxPeers === 0 || this.counts().peers < this.maxPeers, 'PEER_LIMIT');
     let room = this.rooms.get(claims.room);
     if (!room) {
-      requireValue(this.rooms.size < this.maxRooms, 'ROOM_LIMIT');
+      requireValue(this.maxRooms === 0 || this.rooms.size < this.maxRooms, 'ROOM_LIMIT');
       room = { id: claims.room, peers: new Map(), router: await this.worker.createRouter({ mediaCodecs: codecs }) };
       this.rooms.set(room.id, room);
     }
@@ -64,7 +65,7 @@ export class MediaCore {
   owned(map, id) { const value = map.get(id); requireValue(value && !value.closed, 'NOT_FOUND'); return value; }
   async request(peer, method, data = {}) {
     requireValue(peer && !peer.closed, 'NOT_JOINED');
-    requireValue(peer.exp * 1000 > Date.now(), 'TOKEN_EXPIRED');
+    requireValue(isLiveExpiry(peer.exp), 'TOKEN_EXPIRED');
     requireValue(data && typeof data === 'object' && !Array.isArray(data), 'INVALID_DATA');
     switch (method) {
       case 'getRouterRtpCapabilities': return peer.room.router.rtpCapabilities;

@@ -1,3 +1,4 @@
+import {isLiveExpiry} from '../expiry.js';
 import { randomUUID } from 'node:crypto';
 import { WireError } from './wire.js';
 
@@ -45,7 +46,7 @@ const same = (a, b) => b && ['clientId', 'serverId', 'channelId', 'sessionId', '
 // Server-owned stream state. All operations originate in authenticated TS command
 // handlers through the private bridge, never in client WebSocket messages.
 export function createStreamControl({ registry, resolveClient, canPublish, canView = async () => false,
-  endpoint, maxStreams = 16, onEvent = () => {} }) {
+  endpoint, maxStreams = 0, onEvent = () => {} }) {
   if (!registry || typeof resolveClient !== 'function' || typeof canPublish !== 'function'
       || typeof canView !== 'function'
       || !/^[a-zA-Z0-9.-]+:[0-9]{1,5}$/.test(endpoint) || Number(endpoint.split(':')[1]) > 65535)
@@ -94,17 +95,17 @@ export function createStreamControl({ registry, resolveClient, canPublish, canVi
       if (!['2', '3'].includes(args.type)) return reject('UNSUPPORTED_TYPE');
       if (args.accessibility !== '1') return reject('UNSUPPORTED_ACCESSIBILITY');
       if (!number(args.bitrate, 64, 50000)) return reject('BITRATE_RANGE');
-      if (!number(args.viewer_limit, 0, 16)) return reject('VIEWER_LIMIT_RANGE');
+      if (!number(args.viewer_limit, 0, 2147483647)) return reject('VIEWER_LIMIT_RANGE');
       if (!['0', '1'].includes(args.audio)) return reject('INVALID_AUDIO');
       if (args.return_code !== undefined && (args.return_code.length > 256 || /[\x00-\x1f\x7f]/.test(args.return_code))) return reject('INVALID_RETURN_CODE');
-      if (streams.size >= maxStreams) return reject('SERVER_STREAM_LIMIT');
+      if (maxStreams > 0 && streams.size >= maxStreams) return reject('SERVER_STREAM_LIMIT');
       if ([...streams.values()].some(s => s.owner.clientId === clientId)) return reject('CLIENT_ALREADY_STREAMING');
       const owner = { ...live }, id = randomUUID(), version = epoch;
       let grant;
       try { grant = await registry.preparePublisher({ clientId, sessionId: live.sessionId, streamId: id }); }
       catch { return { error: 2568 }; }
       if (!same(owner, await resolveClient(clientId)) || version !== epoch) { registry.revokeStream(id); return { error: 2568 }; }
-      const effectiveViewerLimit = args.viewer_limit === '0' ? '16' : args.viewer_limit;
+      const effectiveViewerLimit = args.viewer_limit;
       const stream = { id, owner, ...args, viewer_limit: effectiveViewerLimit, sfuUserId: grant.userId, exp:grant.exp, endpoint, viewers:new Map() };
       streams.set(id, stream);
       const fields = { clid: clientId, id, name: args.name, type: args.type, access: args.accessibility, mode: 2,
@@ -171,7 +172,7 @@ export function createStreamControl({ registry, resolveClient, canPublish, canVi
     // of whether this client previously requested stream info.
     async resolveViewerGrant(viewer, streamId) {
       const stream=streams.get(streamId),version=epoch;
-      if(!stream || stream.exp*1000<=Date.now() || same(viewer,stream.owner)
+      if(!stream || !isLiveExpiry(stream.exp) || same(viewer,stream.owner)
         || viewer.serverId!==stream.owner.serverId || viewer.channelId!==stream.owner.channelId
         || !same(viewer,await resolveClient(viewer.clientId))
         || !await canView({...viewer},{...stream.owner})
@@ -185,7 +186,7 @@ export function createStreamControl({ registry, resolveClient, canPublish, canVi
       const live=await resolveClient(clientId);if(!live)return [];
       const viewer={...live},result=[];
       for(const stream of streams.values()) {
-        if(stream.exp*1000<=Date.now() || !same(stream.owner,await resolveClient(stream.owner.clientId))){remove(stream);continue;}
+        if(!isLiveExpiry(stream.exp) || !same(stream.owner,await resolveClient(stream.owner.clientId))){remove(stream);continue;}
         if(viewer.serverId!==stream.owner.serverId || viewer.channelId!==stream.owner.channelId
           || !await canView({...viewer},{...stream.owner}))continue;
         if(streams.get(stream.id)===stream)result.push({id:stream.id,publisherClientId:stream.owner.clientId,notification:stream.announcement});
@@ -198,10 +199,10 @@ export function createStreamControl({ registry, resolveClient, canPublish, canVi
       const stream=streams.get(principal?.streamId);
       if (principal?.role !== 'view' || !stream || principal.publisherPeer !== stream.sfuUserId
           || typeof principal.userId !== 'string' || !principal.userId
-          || !Number.isSafeInteger(principal.exp) || principal.exp*1000<=Date.now())
+          || !isLiveExpiry(principal.exp))
         throw new WireError('VIEWER_ADMISSION_UNAVAILABLE');
       if (stream.viewers.has(principal.userId)) throw new WireError('VIEWER_ALREADY_RESERVED');
-      if (stream.viewers.size>=Number(stream.viewer_limit)) throw new WireError('VIEWER_LIMIT');
+      if (Number(stream.viewer_limit)>0 && stream.viewers.size>=Number(stream.viewer_limit)) throw new WireError('VIEWER_LIMIT');
       const record={active:false};stream.viewers.set(principal.userId,record);
       return {
         activate() {

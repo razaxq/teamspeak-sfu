@@ -13,13 +13,14 @@ import { startNativePublisherServer } from '../src/native/server.js';
 import { collectMediaDiagnostics } from '../src/native/media-diagnostics.js';
 import { createSnapshotReader } from './query-snapshot.js';
 import { startQueryDirectory } from './query-directory.js';
+import { configureServerSlots } from './server-slots.js';
 import { Client as VoiceClient, generateIdentity } from '@honeybbq/teamspeak-client';
 import { createNotificationRelay } from '../src/native/notification-relay.js';
 import { createChannelNotifications } from '../src/native/channel-notifications.js';
 
 export async function runNativeServer(config) {
 const {name,host,voicePort,queryPort,wsPort,mediaPort,dir,image,volume,extensionPath,
-  viewerPreview=true,audioFirst=false,accessUid=process.getuid(),accessGid=process.getgid(),smokeTokenEnabled=false}=config;
+  viewerPreview=true,audioFirst=false,tsMaxClients=0,accessUid=process.getuid(),accessGid=process.getgid(),smokeTokenEnabled=false}=config;
 const run=(...args)=>execFileSync('podman',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']}).trim();
 // Refuse duplicate launches before changing the existing instance's status or files.
 if(run('ps','-a','--format','{{.Names}}').split('\n').includes(name))throw new Error('Preview container already exists');
@@ -28,12 +29,12 @@ const firewall=(...args)=>execFileSync('iptables',args,{stdio:['ignore','pipe','
 const rules=[];
 let relayVoice,relay,discovery,relayClientId,relaySessionId,relayReady=false,serverPassword;
 let launched=false, bridge, core, endpoint, directory, reader, stopping=false;
-const registry=createAccessRegistry({resolveClient:async id=>directory?.get(id),ttlSeconds:3600,onEvent:event,makeUserId:viewerPreview ? nativeUserId : undefined,
+const registry=createAccessRegistry({resolveClient:async id=>directory?.get(id),ttlSeconds:0,maxCredentials:0,onEvent:event,makeUserId:viewerPreview ? nativeUserId : undefined,
   resolveViewerGrant:(viewer,id)=>control.resolveViewerGrant(viewer,id)});
 const control=createStreamControl({registry,resolveClient:async id=>directory?.get(id),
   canPublish:async identity=>identity.canPublish===true && identity.clientId!==relayClientId,
   canView:async identity=>viewerPreview && identity.clientId!==relayClientId,
-  endpoint:`${host}:${wsPort}`,maxStreams:4,onEvent:event});
+  endpoint:`${host}:${wsPort}`,maxStreams:0,onEvent:event});
 async function syncDiscovery() {
   if(!viewerPreview || !directory?.healthy)return;
   if(!relayReady || !relay?.healthy || directory.get(relayClientId)?.sessionId!==relaySessionId){
@@ -74,8 +75,8 @@ try {
   chmodSync(dir+'extend_control.so',0o755);
   writeFileSync(dir+'extension.jsonl','',{mode:0o666});chmodSync(dir+'extension.jsonl',0o666);
   const address=(await lookup(host,{family:4})).address;
-  core=await MediaCore.create({listenIp:'0.0.0.0',announcedAddress:address,mediaPort,maxRooms:4,maxPeers:8});
-  endpoint=await startNativePublisherServer({core,host:'0.0.0.0',port:wsPort,maxSockets:8,audioFirst,
+  core=await MediaCore.create({listenIp:'0.0.0.0',announcedAddress:address,mediaPort,maxRooms:0,maxPeers:0});
+  endpoint=await startNativePublisherServer({core,host:'0.0.0.0',port:wsPort,maxSockets:0,audioFirst,
     // Official desktop beta4.1 sends the destination WebSocket URL as Origin.
     allowedOrigins:[`ws://${host}:${wsPort}`],
     authorize:registry.authorize,subscribeRevocations:registry.subscribeRevocations,
@@ -96,7 +97,10 @@ try {
     }
   }
   await reader.request('use sid=1');
-  await reader.request(`serveredit virtualserver_name=SFU\\sPublisher\\sPreview virtualserver_password=${serverPassword} virtualserver_maxclients=8 virtualserver_sfu_endpoint=${host}:${wsPort}`);
+  await reader.request(`serveredit virtualserver_name=SFU\\sPublisher\\sPreview virtualserver_password=${serverPassword} virtualserver_sfu_endpoint=${host}:${wsPort}`);
+  const teamSpeakMaxClients=await configureServerSlots({reader,requested:tsMaxClients,
+    migrateLegacy:!!oldAccess && !existsSync(dir+'slots-migrated')});
+  writeFileSync(dir+'slots-migrated','1\n',{mode:0o600});
   const previousToken=oldAccess.match(/^一次性管理员权限密钥：([^\s]+)$/m)?.[1];
   const response=previousToken ? '' : await reader.request('tokenadd tokentype=0 tokenid1=6 tokenid2=0');
   const token=previousToken ?? response.match(/(?:^|\s)token=([^\s]+)/)?.[1];
@@ -124,7 +128,8 @@ try {
     '--ctorigdstport',String(voicePort),'-m','comment','--comment',name,'-j','ACCEPT'];
   firewall('-I','FORWARD','1',...voiceRule);rules.push(['FORWARD',...voiceRule]);
   const status={ready:true,publisherPreview:true,viewerPreview,viewerDiscoveryReady:relayReady,officialDesktopClientTested:false,host,voicePort,wsPort,mediaPort,
-    announcedAddress:address,productionModified:false,container:name};
+    announcedAddress:address,productionModified:false,container:name,teamSpeakMaxClients,
+    sfuCapacityLimits:false,credentialLifetime:'connection'};
   writeFileSync(dir+'status.json',JSON.stringify(status,null,2)+'\n');event({event:'preview-ready',...status});
   console.log(JSON.stringify(status));
   while(!stopping) {

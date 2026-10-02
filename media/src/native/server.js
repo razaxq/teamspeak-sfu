@@ -9,7 +9,7 @@ import { createViewerApprovalBroker } from './viewer-approval.js';
 // Explicit opt-in experiment with a caller-owned MediaCore and verifier.
 // No CLI, lab-token fallback, native access-info issuer, or implied TS support.
 export async function startNativePublisherServer({ core, authorize, host = '127.0.0.1', port = 0,
-  allowedOrigins = [], maxSockets = 16, subscribeRevocations, onJoinResponse, enableViewers = false, audioActivation = false, audioFirst = false, reserveViewer, onEvent = () => {} } = {}) {
+  allowedOrigins = [], maxSockets = 0, subscribeRevocations, onJoinResponse, enableViewers = false, audioActivation = false, audioFirst = false, reserveViewer, onEvent = () => {} } = {}) {
   if (!core || typeof authorize !== 'function') throw new TypeError('Core and native verifier required');
   const server = http.createServer((_req, res) => { res.writeHead(501); res.end(); });
   const wss = new WebSocketServer({ noServer: true, maxPayload: 65536, perMessageDeflate: false });
@@ -29,7 +29,7 @@ export async function startNativePublisherServer({ core, authorize, host = '127.
   });
   let stopping = false;
   server.on('upgrade', (req, socket, head) => {
-    if (stopping || req.url !== '/' || wss.clients.size >= maxSockets
+    if (stopping || req.url !== '/' || (maxSockets > 0 && wss.clients.size >= maxSockets)
         || (req.headers.origin && !allowedOrigins.includes(req.headers.origin))) {
       onEvent({event:'upgrade-rejected',hasOrigin:!!req.headers.origin,pathIsRoot:req.url==='/'});
       socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); return;

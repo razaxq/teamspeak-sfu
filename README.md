@@ -93,7 +93,9 @@ Passwords, keys, and state are created on the deploying server. No shared creden
 
 The deployment configures the SFU Endpoint automatically. Viewers do not need administrator permissions. **Expect video only for screen sharing in this preview.**
 
-Current limits are 8 TeamSpeak connections (including the notification service), 4 sharing rooms, and 8 media connections. These are preview limits, not a scalability benchmark.
+The native SFU no longer imposes the old 8-connection, 4-stream, or 16-viewer quotas. A viewer limit of `0` means no SFU-imposed cap; an explicit positive limit chosen for a stream is respected. Credentials remain valid for the current TeamSpeak connection instead of expiring after one hour. Disconnects, channel moves, credential rotation, and loss of the trusted client directory still revoke access.
+
+TeamSpeak has its own slot setting and license ceiling. The [upstream Beta server includes 32 slots](https://github.com/teamspeak/teamspeak6-server#readme), one of which is occupied by the notification service. This release does not bypass that limit. One active stream per TeamSpeak connection remains because native stream-info lookup identifies the publisher by client ID. Removing SFU quotas is not a claim of unlimited hardware capacity or a load-test result.
 
 ## Operations and limitations
 
@@ -125,7 +127,7 @@ npm ci
 npm test
 ```
 
-Release preparation passed 70 automated tests and an isolated installation/startup/restart/shutdown check. A fresh end-to-end test between two official clients was not repeated for the deployment package; video support is based on the earlier user confirmation.
+Release preparation passed 77 automated tests and an isolated installation/startup/restart/shutdown check. A fresh end-to-end test between two official clients was not repeated for the deployment package; video support is based on the earlier user confirmation.
 
 Useful contributions include shared-audio support and volume controls, x86_64 server compatibility, installation reliability, recovery after abnormal shutdown, and long-running tests. For issue reports, include your server architecture, operating system, full client version, publisher/viewer role, reproduction steps, and sanitized diagnostics.
 

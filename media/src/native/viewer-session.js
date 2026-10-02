@@ -1,3 +1,4 @@
+import {isLiveExpiry} from '../expiry.js';
 import { decodeFrame, encodeResponse, WireError } from './wire.js';
 import { createViewerMediaSession } from './viewer-media.js';
 
@@ -35,6 +36,7 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
     return media.close();
   };
   function armExpiry(){
+    if(binding.exp===null)return;
     const remaining=binding.exp*1000-Date.now();
     if(remaining<=0){void cleanup();onFailure('TOKEN_EXPIRED');return;}
     expiryTimer=setTimeout(armExpiry,Math.min(remaining,2147483647));expiryTimer.unref();
@@ -44,7 +46,7 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
     const p=await authorize(frame);
     requireValue(!closed && p?.role==='view' && p.streamId===frame.args.id
       && scope.slice(0,5).every(k=>typeof p[k]==='string' && p[k].length>0)
-      && Number.isSafeInteger(p.exp) && p.exp*1000>Date.now(),'VIEWER_AUTH_REJECTED');
+      && isLiveExpiry(p.exp),'VIEWER_AUTH_REJECTED');
     requireValue(frame.args.userId===undefined || frame.args.userId===p.publisherPeer,'USER_SCOPE_MISMATCH');
     if(binding)requireValue(scope.every(k=>binding[k]===p[k]),'VIEWER_SCOPE_MISMATCH');
     return p;
@@ -54,7 +56,7 @@ export function createNativeViewerSession({core,authorize,approveJoin,cancelJoin
   }
   return {
     get closed(){return closed;},
-    get principal(){return !closed && binding?.exp*1000>Date.now() ? binding : undefined;},
+    get principal(){return !closed && binding && isLiveExpiry(binding.exp) ? binding : undefined;},
     async dispatch(input) {
       const frame=decodeFrame(input),p=await check(frame),args=frame.args;
       let result;

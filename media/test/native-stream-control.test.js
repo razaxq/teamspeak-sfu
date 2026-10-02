@@ -30,7 +30,7 @@ test('stream admission honors an explicit denial policy and rejects malformed se
   await registry.issue('1');clients.get('1').canPublish=false;
   assert.equal((await control.dispatch('1',setup)).error,2568);
   clients.get('1').canPublish=true;
-  for(const bad of [setup+' mode=2',setup.replace('viewer_limit=5','viewer_limit=999'),setup.replace('audio=1','audio=9'),setup+'|stopstream',setup.replace('name=screen\\sshare','name=bad\\nline')])
+  for(const bad of [setup+' mode=2',setup.replace('viewer_limit=5','viewer_limit=-1'),setup.replace('audio=1','audio=9'),setup+'|stopstream',setup.replace('name=screen\\sshare','name=bad\\nline')])
     assert.equal((await control.dispatch('1',bad)).error,256);
   assert.deepEqual(await control.dispatch('1',setup.replace('mode=2','mode=1')),{pass:true});
   const results=await Promise.all([control.dispatch('1',setup),control.dispatch('1',setup)]);
@@ -55,7 +55,7 @@ test('observed official screen-share request accepts type 3 and zero viewer limi
   const result=await control.dispatch('1','setupstream name=Screen type=3 bitrate=41248 accessibility=1 mode=2 viewer_limit=0 audio=0 return_code=1:3');
   assert.ok(result.notification);
   const {args}=parseControlCommand(result.notification);
-  assert.equal(args.type,'3');assert.equal(args.viewer_limit,'16');assert.equal(args.audio,'0');
+  assert.equal(args.type,'3');assert.equal(args.viewer_limit,'0');assert.equal(args.audio,'0');
   const credential=await registry.issue('1');
   assert.ok(await registry.authorize({token:credential.token,cmd:'create-stream',args:{id:args.id}}));
 });

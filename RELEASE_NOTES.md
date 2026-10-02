@@ -1,19 +1,22 @@
-# v0.1.0-preview.2
+# v0.1.0-preview.3
 
 **English** | [简体中文](RELEASE_NOTES.zh-CN.md)
 
-Connected ordinary TeamSpeak users can now publish screen shares without joining the administrator group or using an administrator privilege key. The generated administrator key remains available for server management.
+Removed the native SFU's fixed total connection, room, stream, credential-count, and default viewer quotas. Ordinary connected users can still publish without administrator privileges.
 
 Changes:
 
-- Removed the hard-coded administrator group requirement from the trusted client directory and Query integration.
-- Group changes alone no longer revoke a user's stream identity. Disconnects, channel moves, identity changes, and Query loss still revoke it.
-- The internal notification connection remains excluded from publishing and viewing.
-- Kept authenticated connection checks, stream ownership, same-channel viewing, viewing approval, and capacity limits.
-- Updated the runtime instructions and the English and Chinese documentation. English is the default; detailed README and contributor guides are included.
+- Removed the native deployment's 8-connection/media-session and 4-room/stream caps.
+- `viewer_limit=0` now means no SFU-imposed viewer cap instead of being rewritten to 16. An explicit positive limit selected for a stream is still honored.
+- Removed internal four-stream viewer-grant and 128-credential quotas.
+- Credentials follow the authenticated TeamSpeak connection and no longer force a media shutdown after one hour. Disconnects, channel moves, identity changes, credential rotation, and Query loss still revoke access.
+- Stopped resetting TeamSpeak to 8 slots on every start. Existing generated eight-slot instances migrate to 32 once; subsequent slot changes are preserved. `SFU_TS_MAXCLIENTS=0` retains the TeamSpeak setting, while a positive value requests a particular slot count.
+- Added status fields for the effective TeamSpeak slot count and the connection-bound credential lifetime.
 
-Validation: all **70 automated tests passed**. An isolated pinned ARM64 server was tested with synthetic native-protocol publisher and viewer connections, both verified not to belong to administrator group 6. The test passed stream start/stop notifications, sharing flags, late-join discovery, viewing approval, audio/video consumer creation, viewer count, and cleanup. This is a protocol integration test, not a new official desktop-client acceptance test or proof of working shared audio.
+The [upstream TeamSpeak Beta server has a 32-slot license](https://github.com/teamspeak/teamspeak6-server#readme). This release does not bypass its slot/license ceiling. The notification service uses one slot. One active stream per TeamSpeak connection remains because native stream-info lookup identifies streams by publisher client ID. Authentication, same-channel viewing, publisher approval, and per-request protocol/abuse protections remain in place. Removing quotas is not a hardware-capacity guarantee.
 
-Known limitations remain: screen video was previously confirmed between official Windows **6.0.0-beta4.1, build 1779880475** clients; shared audio and its volume controls still do not work. Only the pinned Linux ARM64 server build is supported. A separate experimental TeamSpeak server, public IPv4, rootful Podman, and iptables are required. TURN, WSS, IPv6, and x86_64 deployment are not supported. Large deployments and long-term unattended operation remain unverified.
+Validation: **77 automated tests passed**, including 12 simultaneous native WebSocket/media sessions, more than four streams, 21 viewer reservations, 140 credentials, and continued publisher/viewer media operations after a **simulated** two-hour clock advance. Tests also verify revocation and TeamSpeak slot migration. An isolated native protocol smoke test also passed stream discovery, approval, consumer creation, pause/resume, and cleanup with three non-admin clients. A separate 12-client connection attempt reached 12 connections but timed out during the subsequent media flow; that larger end-to-end case remains unverified. These checks do not constitute a large-scale load test or a fresh official desktop-client acceptance test.
 
-Recommended for people with software development experience or familiarity with **Codex** for development, deployment, and troubleshooting. Follow the [self-hosting and upgrade guide](docs/SELFHOST.md). This is an experimental **Pre-release**.
+Known limitations: the pinned Linux ARM64 server is still required; the tested official Windows client is **6.0.0-beta4.1, build 1779880475**. Shared audio and its volume controls remain unavailable. TURN, WSS, IPv6, and x86_64 deployment are not supported. Long-term stability is not established.
+
+Recommended for people with software development experience or familiarity with **Codex** for development and troubleshooting. See the [self-hosting and upgrade guide](docs/SELFHOST.md). This is an experimental **Pre-release**.

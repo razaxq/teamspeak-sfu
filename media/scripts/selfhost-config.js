@@ -24,6 +24,10 @@ export function selfhostConfig(env=process.env) {
   for(const key of ['name','volume'])if(!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}$/.test(config[key]))throw new Error(`Invalid ${key}`);
   if(!isAbsolute(config.dir) || /[:\s\x00-\x1f]/.test(config.dir) || resolve(config.dir)==='/')throw new Error('SFU_STATE_DIR must be an absolute non-root path without whitespace or colons');
   config.dir=resolve(config.dir)+sep;
+  const slots=env.SFU_TS_MAXCLIENTS ?? '0';
+  if(!/^\d+$/.test(slots) || !Number.isSafeInteger(Number(slots)) || Number(slots)>2147483647)
+    throw new Error('Invalid SFU_TS_MAXCLIENTS: use 0 to retain the TeamSpeak setting, or a positive slot count');
+  config.tsMaxClients=Number(slots);
   if(!/^[a-zA-Z0-9][a-zA-Z0-9./:@_-]*$/.test(config.image))throw new Error('Invalid SFU_SERVER_IMAGE');
   return config;
 }

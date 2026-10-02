@@ -10,7 +10,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = 'v0.1.0-preview.2'
+VERSION = 'v0.1.0-preview.3'
 NAME = 'ts6-native-sfu-lab-' + VERSION
 OUT = ROOT / 'dist'
 
@@ -27,6 +27,7 @@ def main():
         'scripts/instrumentation/control_return_code_test.c',
         'media/package.json', 'media/package-lock.json',
         'media/scripts/selfhost.js', 'media/scripts/selfhost-config.js',
+        'media/scripts/server-slots.js',
         'media/scripts/native-runtime.js', 'media/scripts/query-directory.js',
         'media/scripts/query-snapshot.js', 'media/scripts/browser-test.sh',
         'media/scripts/token.js',

@@ -1,3 +1,4 @@
+import {isLiveExpiry} from '../expiry.js';
 import { createNativeDispatcher } from './dispatch.js';
 import { encodeResponse, WireError } from './wire.js';
 
@@ -20,12 +21,13 @@ export function createNativePublisherSession({ core, authorize, onJoinResponse, 
   }
   function live() {
     requireValue(!closed, 'SESSION_CLOSED');
-    if (binding && binding.exp * 1000 <= Date.now()) {
+    if (binding && !isLiveExpiry(binding.exp)) {
       closed = true; cleanup(); throw new WireError('TOKEN_EXPIRED');
     }
   }
   function armExpiry() {
     clearTimeout(timer);
+    if (binding.exp === null) return;
     const remaining = binding.exp * 1000 - Date.now();
     if (remaining <= 0) { closed = true; cleanup(); return; }
     timer = setTimeout(armExpiry, Math.min(remaining, 2147483647));
@@ -34,8 +36,7 @@ export function createNativePublisherSession({ core, authorize, onJoinResponse, 
   function validate(principal, args) {
     live();
     requireValue(object(principal) && ['room', 'peer', 'streamId', 'userId'].every(k => string(principal[k]))
-      && principal.role === 'publish' && Number.isSafeInteger(principal.exp)
-      && principal.exp > Date.now() / 1000, 'INVALID_NATIVE_PRINCIPAL');
+      && principal.role === 'publish' && isLiveExpiry(principal.exp), 'INVALID_NATIVE_PRINCIPAL');
     requireValue(object(args) && args.id === principal.streamId, 'STREAM_SCOPE_MISMATCH');
     requireValue(!Object.hasOwn(args, 'userId') || args.userId === principal.userId, 'USER_SCOPE_MISMATCH');
     if (binding) requireValue(['room', 'peer', 'streamId', 'userId', 'role', 'exp']
@@ -122,7 +123,7 @@ export function createNativePublisherSession({ core, authorize, onJoinResponse, 
   } });
   return {
     get closed() { return closed; },
-    get principal() { return !closed && binding?.exp * 1000 > Date.now() ? binding : undefined; },
+    get principal() { return !closed && binding && isLiveExpiry(binding.exp) ? binding : undefined; },
     dispatch(input) {
       if (closed) return Promise.reject(new WireError('SESSION_CLOSED'));
       if ((typeof input === 'string' && Buffer.byteLength(input) > 65536)

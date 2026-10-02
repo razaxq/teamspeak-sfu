@@ -1,3 +1,4 @@
+import {isLiveExpiry} from '../expiry.js';
 import { WireError } from './wire.js';
 
 const requireValue = (ok, code) => { if (!ok) throw new WireError(code); };
@@ -21,7 +22,7 @@ export function createViewerMediaSession({core,authorize,approveJoin,subscribeRe
   };
   const unsubscribe=subscribeRevocations?.(invalidate);
   function live() {
-    if(binding && binding.exp*1000<=Date.now()){closed=true;cleanup();}
+    if(binding && !isLiveExpiry(binding.exp)){closed=true;cleanup();}
     requireValue(!closed,'VIEWER_SESSION_CLOSED');
   }
   async function check(token,streamId,cmd) {
@@ -30,7 +31,7 @@ export function createViewerMediaSession({core,authorize,approveJoin,subscribeRe
     if(!principal){closed=true;cleanup();throw new WireError('VIEWER_AUTH_REJECTED');}
     requireValue(principal.role==='view' && principal.streamId===streamId
       && ['room','peer','streamId','userId','publisherPeer'].every(k=>typeof principal[k]==='string' && principal[k].length>0)
-      && Number.isSafeInteger(principal.exp) && principal.exp*1000>Date.now(),'INVALID_VIEWER_PRINCIPAL');
+      && isLiveExpiry(principal.exp),'INVALID_VIEWER_PRINCIPAL');
     if(binding)requireValue(fields.every(k=>binding[k]===principal[k]),'VIEWER_SCOPE_MISMATCH');
     return principal;
   }
@@ -41,6 +42,7 @@ export function createViewerMediaSession({core,authorize,approveJoin,subscribeRe
     tail=result.then(()=>{},()=>{}).finally(()=>{pending--;});return result;
   }
   function armExpiry() {
+    if(binding.exp===null)return;
     const remaining=binding.exp*1000-Date.now();
     if(remaining<=0){closed=true;cleanup();return;}
     expiryTimer=setTimeout(armExpiry,Math.min(remaining,2147483647));expiryTimer.unref();
