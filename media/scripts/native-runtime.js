@@ -38,7 +38,7 @@ const control=createStreamControl({registry,resolveClient:async id=>directory?.g
 async function syncDiscovery() {
   if(!viewerPreview || !directory?.healthy)return;
   if(!relayReady || !relay?.healthy || directory.get(relayClientId)?.sessionId!==relaySessionId){
-    await discovery?.close();await relay?.close();try{await relayVoice?.disconnect();}catch{}
+    await relay?.close();try{await relayVoice?.disconnect();}catch{}
     relayVoice=new VoiceClient(generateIdentity(8),`127.0.0.1:${voicePort}`,'SFU 服务',{
       serverPassword,logger:Object.fromEntries(['debug','info','warn','error'].map(k=>[k,()=>{}]))});
     relayVoice.on('disconnected',()=>{relayReady=false;});
@@ -47,7 +47,8 @@ async function syncDiscovery() {
     const identity=await directory.waitFor(relayClientId);
     relaySessionId=identity.sessionId;
     relay=createNotificationRelay({voice:relayVoice,identity,onEvent:event,resolveClient:async id=>directory.get(id)});
-    discovery=createChannelNotifications({includeStreamingStatus:true,control,listClientIds:async()=>directory.list().map(i=>i.clientId),
+    // Keep delivery progress when replacing only the relay connection.
+    discovery ??=createChannelNotifications({includeStreamingStatus:true,control,listClientIds:async()=>directory.list().map(i=>i.clientId),
       resolveClient:async id=>directory.get(id),sendNotification:item=>relay.sendNotification(item),onEvent:event});
     relayReady=true;event({event:'viewer-discovery-ready'});
   }

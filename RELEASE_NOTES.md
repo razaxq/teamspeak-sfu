@@ -1,3 +1,21 @@
+# v0.1.0-preview.4
+
+**English** | [简体中文](RELEASE_NOTES.zh-CN.md)
+
+Improved recovery of sharing icons and start/stop announcements when notification delivery fails or the notification service reconnects.
+
+- A failed recipient no longer prevents synchronization attempts for later recipients.
+- Track each notification step. Retry incomplete steps without repeating confirmed ones; clear a possibly delivered sharing icon when its stream stops, even if the original acknowledgement was lost.
+- Recheck the recipient connection between the icon update and the stream announcement. Do not announce a stream that stopped during an earlier send.
+- Coalesce bursts of start/stop events into current-state synchronization instead of queuing a full scan for every event.
+- Stop sending through an unhealthy relay and retain delivery progress when replacing its connection.
+
+Validation: **84 automated tests passed**. An isolated test with three non-admin synthetic protocol clients passed discovery, late arrival, viewing approval, AV1/Opus consumer creation, pause/resume, and stop cleanup. Forcibly disconnecting the notification service verified automatic reconnection without duplicate start announcements to existing viewers. The pinned server binary was verified and the C extension compiled locally. No official desktop-client acceptance test was repeated.
+
+Shared audio and its volume controls remain unavailable. The earlier 12-client full-flow timeout is still unresolved; this release does not establish large-room or long-term stability. Linux ARM64 and the pinned server build remain required. The quotas removed in preview.3 remain removed, and its authorization and upstream TeamSpeak slot constraints still apply.
+
+See the [upgrade guide](docs/SELFHOST.md#upgrade-from-preview1-preview2-or-preview3).
+
 # v0.1.0-preview.3
 
 **English** | [简体中文](RELEASE_NOTES.zh-CN.md)

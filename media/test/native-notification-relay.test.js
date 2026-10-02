@@ -37,3 +37,16 @@ test('failed native sends mark the relay unhealthy for replacement',async()=>{
   assert.equal(JSON.stringify(events).includes('private detail'),false);
   await relay.close();
 });
+
+
+test('an unhealthy relay fails queued work promptly without sending more native commands',async()=>{
+  const driver=identity('1'),recipient=identity('2');let calls=0,release;
+  const blocked=new Promise(resolve=>{release=resolve;});
+  const relay=createNotificationRelay({voice:{async execCommand(){calls++;await blocked;throw new Error('timeout');}},identity:driver,
+    resolveClient:async id=>id==='1'?driver:recipient});
+  const first=assert.rejects(relay.sendNotification({recipient,notification}),/timeout/);
+  const queued=assert.rejects(relay.sendNotification({recipient,notification}),/unavailable/);
+  release();await Promise.all([first,queued]);
+  await assert.rejects(relay.sendNotification({recipient,notification}),/unavailable/);
+  assert.equal(calls,1);await relay.close();
+});

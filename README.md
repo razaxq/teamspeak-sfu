@@ -24,6 +24,7 @@ Deployers run the server components on their own infrastructure. Publishers and 
 | --- | --- |
 | Official-client screen-sharing entry and sharing icon | Implemented |
 | Start/stop notifications and viewing approval | Implemented |
+| Notification retry and relay reconnection without repeating confirmed announcements | Verified by automated and isolated protocol tests |
 | Screen video between unmodified official clients | Confirmed by a user |
 | Shared audio and the viewer's shared-audio volume control | **Not working** |
 | Normal TeamSpeak voice chat | Reported working; separate from shared audio |
@@ -127,7 +128,7 @@ npm ci
 npm test
 ```
 
-Release preparation passed 77 automated tests and an isolated installation/startup/restart/shutdown check. A fresh end-to-end test between two official clients was not repeated for the deployment package; video support is based on the earlier user confirmation.
+Release preparation passed 84 automated tests and an isolated three-client protocol test that also forcibly disconnected the notification relay and verified its recovery. A fresh end-to-end test between two official clients was not repeated for the deployment package; video support is based on the earlier user confirmation.
 
 Useful contributions include shared-audio support and volume controls, x86_64 server compatibility, installation reliability, recovery after abnormal shutdown, and long-running tests. For issue reports, include your server architecture, operating system, full client version, publisher/viewer role, reproduction steps, and sanitized diagnostics.
 

@@ -10,7 +10,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = 'v0.1.0-preview.3'
+VERSION = 'v0.1.0-preview.4'
 NAME = 'ts6-native-sfu-lab-' + VERSION
 OUT = ROOT / 'dist'
 

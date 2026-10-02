@@ -8,12 +8,13 @@ export function createNotificationRelay({voice,identity,resolveClient,maxPending
   return {
     get healthy(){return !closed && healthy;},
     sendNotification({recipient,notification}) {
-      if(closed || pending>=maxPending)return Promise.reject(new Error('Notification relay unavailable'));
+      if(closed || !healthy || pending>=maxPending)return Promise.reject(new Error('Notification relay unavailable'));
       if(typeof notification!=='string' || Buffer.byteLength(notification)>4000 || /[\r\n\0]/.test(notification)
         || !(/^notifystream(?:started|stopped) /.test(notification) || /^notifyclientupdated clid=[1-9][0-9]{0,4} client_is_streaming=[01]$/.test(notification)))return Promise.reject(new Error('Invalid notification'));
       const item={recipient:{...recipient},notification,offered:false};pending++;
       const result=tail.then(async()=>{
-        if(closed || !same(relay,await resolveClient(relay.clientId)) || !same(item.recipient,await resolveClient(item.recipient.clientId)))
+        if(closed || !healthy)throw new Error('Notification relay unavailable');
+        if(!same(relay,await resolveClient(relay.clientId)) || !same(item.recipient,await resolveClient(item.recipient.clientId)))
           throw new Error('Notification connection changed');
         current=item;
         try {

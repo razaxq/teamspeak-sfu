@@ -2,7 +2,7 @@
 
 **English** | [简体中文](SELFHOST.zh-CN.md)
 
-This is **v0.1.0-preview.3**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
+This is **v0.1.0-preview.4**. A user has confirmed shared screen video between unmodified official TeamSpeak 6 clients. **Shared audio does not work, and viewers have no shared-audio volume control.** Normal voice chat uses a separate path. Browser audio/video tests do not establish official-client shared-audio support.
 
 This project is recommended for people with software development experience, or people familiar with using **Codex** for development, deployment, and troubleshooting. Be prepared to configure Linux networking, inspect diagnostics, and verify changes on your own server.
 
@@ -29,7 +29,7 @@ Extract the source package to `/opt/ts6-native-sfu-lab`, directly containing `me
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
-tar -xzf ts6-native-sfu-lab-v0.1.0-preview.3.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
+tar -xzf ts6-native-sfu-lab-v0.1.0-preview.4.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
 cd /opt/ts6-native-sfu-lab
 npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
@@ -84,7 +84,7 @@ The current runtime writes Chinese labels in `access.txt`: `实验地址` means 
 3. Join the same channel. The publisher opens screen sharing, selects **Server**, and starts the stream.
 4. The viewer joins through the active sharing icon. The publisher approves the request when prompted.
 
-The script automatically sets SFU Endpoint to `SFU_PUBLIC_HOST:SFU_WS_PORT`. A connection named `SFU 服务` (SFU service) provides sharing notifications; do not kick it. The native SFU has no fixed total connection/room quota, and `viewer_limit=0` no longer becomes 16. Positive per-stream viewer limits are still honored. TeamSpeak itself retains its configured slot count and license ceiling; the [upstream Beta license provides 32 slots](https://github.com/teamspeak/teamspeak6-server#readme). The notification connection uses one slot. One active stream per TeamSpeak connection and per-request protocol protections remain. No large-scale capacity claim is made.
+The script automatically sets SFU Endpoint to `SFU_PUBLIC_HOST:SFU_WS_PORT`. A connection named `SFU 服务` (SFU service) provides sharing notifications; keep it connected. If it disconnects, the runtime attempts to reconnect it on the next discovery poll (normally every five seconds). Successful delivery steps are retained across this reconnect, while failed steps are retried. This does not recover a publisher or viewer whose own TeamSpeak connection was lost. The native SFU has no fixed total connection/room quota, and `viewer_limit=0` no longer becomes 16. Positive per-stream viewer limits are still honored. TeamSpeak itself retains its configured slot count and license ceiling; the [upstream Beta license provides 32 slots](https://github.com/teamspeak/teamspeak6-server#readme). The notification connection uses one slot. One active stream per TeamSpeak connection and per-request protocol protections remain. No large-scale capacity claim is made.
 
 Credentials are now connection-bound with no one-hour expiry. Disconnects, channel moves, credential rotation, or Query loss still revoke access. `SFU_TS_MAXCLIENTS=0` (the default) preserves TeamSpeak's own slot setting. When upgrading an older generated instance still at 8 slots, the launcher migrates it to 32 once and records that migration in the state directory. Later changes through TeamSpeak are preserved. A positive `SFU_TS_MAXCLIENTS` explicitly sets slots at startup, subject to TeamSpeak's own limits; it does not mean unlimited slots.
 
@@ -118,6 +118,6 @@ npm test
 
 Tests cover authentication, permission revocation, native messages, viewing approval, media cleanup, and deployment configuration validation. Optional browser tests need Playwright Chromium and built web assets. They do not replace end-to-end acceptance testing between two official clients.
 
-## Upgrade from preview.1 or preview.2
+## Upgrade from preview.1, preview.2, or preview.3
 
-Stop this project's systemd service, update the application directory with the preview.3 source, rerun `npm --prefix media ci --omit=dev` and the preflight check, then start the service. Retain `/etc/ts6-sfu-selfhost.env`, the state directory, and the Podman data volume. Reconnect clients to use the updated policy; no administrator key is needed.
+Stop this project's systemd service, update the application directory with the preview.4 source, rerun `npm --prefix media ci --omit=dev` and the preflight check, then start the service. Retain `/etc/ts6-sfu-selfhost.env`, the state directory, and the Podman data volume. Reconnect clients to use the updated policy; no administrator key is needed.

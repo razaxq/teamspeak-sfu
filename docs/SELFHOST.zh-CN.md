@@ -4,7 +4,7 @@
 
 建议具备软件开发经验，或熟悉使用 **Codex** 辅助开发、部署和排错的人操作本项目。需要能够配置 Linux 网络、检查诊断信息，并在自己的服务器上验证改动。
 
-这是 **v0.1.0-preview.3**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
+这是 **v0.1.0-preview.4**。原版 TeamSpeak 6 客户端之间的共享画面已由实际用户确认；**共享声音不可用，观看端没有共享音量控件**。正常语音聊天与共享声音是不同功能。浏览器音视频测试通过不代表官方客户端共享声音可用。
 
 目前仅支持 **Linux ARM64 / aarch64**，使用固定版本的 TeamSpeak 服务端镜像。已验证的官方 Windows 客户端为 **6.0.0-beta4.1，内部版本号 1779880475**。没有验证 x86_64 服务端、其他客户端版本、大规模房间或长期无人值守运行。
 
@@ -29,7 +29,7 @@ node --version
 
 ```sh
 mkdir -p /opt/ts6-native-sfu-lab
-tar -xzf ts6-native-sfu-lab-v0.1.0-preview.3.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
+tar -xzf ts6-native-sfu-lab-v0.1.0-preview.4.tar.gz --strip-components=1 -C /opt/ts6-native-sfu-lab
 cd /opt/ts6-native-sfu-lab
 npm --prefix media ci --omit=dev
 install -m 600 deploy/selfhost.env.example /etc/ts6-sfu-selfhost.env
@@ -82,7 +82,7 @@ cat /var/lib/ts6-sfu-selfhost/access.txt
 3. 双方进入同一频道。发布者打开屏幕共享，选择 Server / 服务器，再开始直播。
 4. 观看者从正在分享的图标进入观看；需要时由发布者允许加入。
 
-SFU Endpoint 由脚本自动设置为 `SFU_PUBLIC_HOST:SFU_WS_PORT`。频道中会出现名为“SFU 服务”的连接，用于原生分享通知，不要踢出。原生 SFU 不再设置固定的总连接数/房间数配额，`viewer_limit=0` 也不再被改成 16。正数的单路直播观看人数设置仍然生效。TeamSpeak 自身的槽位配置及许可上限仍有效；[官方 Beta 许可提供 32 个槽位](https://github.com/teamspeak/teamspeak6-server#readme)，通知服务占用其中一个。每个 TeamSpeak 连接单路直播以及单次请求的协议保护仍保留，不宣称已具备大规模承载能力。
+SFU Endpoint 由脚本自动设置为 `SFU_PUBLIC_HOST:SFU_WS_PORT`。频道中会出现名为“SFU 服务”的连接，用于原生分享通知，应保持在线。如果它断线，运行时会在下一次发现同步轮询时尝试重连（正常约每五秒一次）。重连会保留已完成的通知步骤，并重试失败步骤；这不代表能恢复发布者或观看者自身断开的 TeamSpeak 连接。原生 SFU 不再设置固定的总连接数/房间数配额，`viewer_limit=0` 也不再被改成 16。正数的单路直播观看人数设置仍然生效。TeamSpeak 自身的槽位配置及许可上限仍有效；[官方 Beta 许可提供 32 个槽位](https://github.com/teamspeak/teamspeak6-server#readme)，通知服务占用其中一个。每个 TeamSpeak 连接单路直播以及单次请求的协议保护仍保留，不宣称已具备大规模承载能力。
 
 凭据现在随连接有效，不再一小时到期；断线、换频道、凭据轮换或 Query 失联仍撤销访问。`SFU_TS_MAXCLIENTS=0`（默认值）表示保留 TeamSpeak 自身的槽位设置。从旧版生成的实例升级且仍为 8 槽时，启动脚本会一次性迁移到 32，并在状态目录记录迁移；之后通过 TeamSpeak 修改的槽位数会被保留。设置正数 `SFU_TS_MAXCLIENTS` 会在启动时明确指定槽位数，仍受 TeamSpeak 自身限制，并不代表无限槽位。
 
@@ -116,6 +116,6 @@ npm test
 
 测试覆盖鉴权、权限撤销、原生消息、观看审批、媒体资源清理和部署配置校验。可选的浏览器测试需要额外安装 Playwright Chromium，并构建网页资源；它们不能替代两个官方客户端之间的实际验收。
 
-## 从 preview.1 或 preview.2 升级
+## 从 preview.1、preview.2 或 preview.3 升级
 
-停止本项目的 systemd 服务，用 preview.3 源码更新程序目录，重新执行 `npm --prefix media ci --omit=dev` 和预检查，然后启动服务。保留 `/etc/ts6-sfu-selfhost.env`、状态目录和 Podman 数据卷。客户端重新连接后即可使用新策略，无需兑换管理员密钥。
+停止本项目的 systemd 服务，用 preview.4 源码更新程序目录，重新执行 `npm --prefix media ci --omit=dev` 和预检查，然后启动服务。保留 `/etc/ts6-sfu-selfhost.env`、状态目录和 Podman 数据卷。客户端重新连接后即可使用新策略，无需兑换管理员密钥。
